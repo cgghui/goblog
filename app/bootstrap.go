@@ -140,10 +140,8 @@ func initDatabase() {
 	defer db.Close()
 	db.SingularTable(true)
 
-	// profile := Profile{}
-	// tmp := db.Model(&User{}).Related(&Profile{})
-	// tmp.First(&profile)
-	var u User
-	db.First(&u)
-	fmt.Printf("%+v", u)
+	profile := User{}
+	tmp := db.Model(&User{}).Related(&Profile{})
+	tmp.First(&profile)
+	fmt.Printf("%+v", profile)
 }
