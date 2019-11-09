@@ -10,48 +10,53 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
-
-	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/ini.v1"
+
+	// MySQL Driver
+	_ "github.com/go-sql-driver/mysql"
 )
 
-// Config App配置
-type Config struct {
-	ConfigFilePath string
-	Log            *ini.Section
-	Service        *ini.Section
+// App App配置
+type App struct {
+	Config map[string]*ini.Section
+	Router *gin.Engine
+	DB     *gorm.DB
 }
 
 // New 初始化app服务
-func New(conf Config) {
+func New() {
 
-	initDatabase()
-	return
-
-	cfg, err := ini.Load("../../config.ini", conf.ConfigFilePath)
+	cfg, err := ini.Load("../../config.ini", "config.ini")
 	if err != nil {
 		log.Printf("Fail load config file: %v\n", err)
 		os.Exit(1)
 	}
-	conf.Log = cfg.Section("log")
-	conf.Service = cfg.Section("Service")
 
 	gin.DisableConsoleColor()
 
-	router := gin.New()
+	app := &App{
+		Config: map[string]*ini.Section{
+			"log":     cfg.Section("log"),
+			"service": cfg.Section("service"),
+			"db":      cfg.Section("MySQL"),
+		},
+		Router: gin.New(),
+	}
 
-	initLog(router, conf.Log)
-	initRecovery(router, conf.Log)
+	initLog(app.Router, app.Config["log"])
+	initRecovery(app.Router, app.Config["log"])
+	initDatabase(app)
 
-	router.GET("/ping", func(c *gin.Context) {
+	app.Router.GET("/ping", func(c *gin.Context) {
+
 		c.String(200, "PONG")
 	})
 
 	s := &http.Server{
-		Addr:         conf.Service.Key("listenAddr").MustString(""),
-		Handler:      router,
-		ReadTimeout:  time.Duration(conf.Service.Key("rtimeout").MustInt64(0)) * time.Second,
-		WriteTimeout: time.Duration(conf.Service.Key("wtimeout").MustInt64(0)) * time.Second,
+		Addr:         app.Config["service"].Key("listenAddr").MustString(""),
+		Handler:      app.Router,
+		ReadTimeout:  time.Duration(app.Config["service"].Key("rtimeout").MustInt64(0)) * time.Second,
+		WriteTimeout: time.Duration(app.Config["service"].Key("wtimeout").MustInt64(0)) * time.Second,
 	}
 
 	s.ListenAndServe()
@@ -91,25 +96,6 @@ func initLog(router *gin.Engine, conf *ini.Section) {
 	return
 }
 
-// User test
-type User struct {
-	ID        uint `gorm:"primary_key"`
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time `sql:"index"`
-}
-
-// Profile test
-type Profile struct {
-	gorm.Model
-	UserID   uint `gorm:"column:user_id"`
-	Nickname string
-	Age      string
-	Sex      string
-	User     User `gorm:"foreignkey:UserID"`
-}
-
 func initRecovery(router *gin.Engine, conf *ini.Section) {
 
 	logf := conf.Key("recovery").MustString("")
@@ -128,20 +114,36 @@ func initRecovery(router *gin.Engine, conf *ini.Section) {
 	return
 }
 
-func initDatabase() {
-	db, err := gorm.Open("mysql", "root:123123@(127.0.0.3)/stest?charset=utf8&parseTime=True&loc=Local")
+func initDatabase(app *App) {
+
+	conf := app.Config["db"]
+
+	dbuser := conf.Key("user").MustString("")
+	if dbuser == "" {
+		log.Printf("Fail db user empty\n")
+		os.Exit(1)
+	}
+
+	db, err := gorm.Open(
+		"mysql",
+		fmt.Sprintf(
+			"%s:%s@(%s)/%s?charset=%s&parseTime=True&loc=Local",
+			dbuser,
+			conf.Key("password").MustString(""),
+			conf.Key("host").MustString("127.0.0.1:3306"),
+			conf.Key("dbname").MustString(dbuser),
+			conf.Key("charset").MustString("utf8"),
+		),
+	)
 	if err != nil {
 		log.Printf("Fail connect db: %v\n", err)
-		return
+		os.Exit(1)
 	}
-	// db.LogMode(true)
-	// db.DB().SetMaxIdleConns(0)
-	// db.DB().SetMaxOpenConns(0)
 	defer db.Close()
+	//db.LogMode(true)
+	db.DB().SetMaxIdleConns(conf.Key("max_idle").MustInt(9))
+	db.DB().SetMaxOpenConns(conf.Key("max_open").MustInt(0))
 	db.SingularTable(true)
 
-	profile := User{}
-	tmp := db.Model(&User{}).Related(&Profile{})
-	tmp.First(&profile)
-	fmt.Printf("%+v", profile)
+	app.DB = db
 }
