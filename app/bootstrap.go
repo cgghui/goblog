@@ -19,6 +19,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// RouteBuilder 路由构造器
+type RouteBuilder interface {
+	Construct(*App)
+}
+
 // App App配置
 type App struct {
 	Config  map[string]*ini.Section
@@ -29,7 +34,7 @@ type App struct {
 }
 
 // New 初始化app服务
-func New() {
+func New(rcs []RouteBuilder) {
 
 	cfg, err := ini.Load("../../config.ini", "config.ini")
 	if err != nil {
@@ -70,20 +75,20 @@ func New() {
 
 	// cache Redis
 	initRedis(app)
-	if _, err := app.Redis.Ping().Result(); err != nil {
-		log.Printf("Fail connect redis: %v\n", err)
-		os.Exit(1)
+	if app.Redis != nil {
+		if _, err := app.Redis.Ping().Result(); err != nil {
+			log.Printf("Fail connect redis: %v\n", err)
+			os.Exit(1)
+		}
+		defer app.Redis.Close()
 	}
-	defer app.Redis.Close()
 
+	// Session
 	initSession(app)
 
-	app.Router.GET("/ping", func(c *gin.Context) {
-		s := sessions.Default(c)
-		s.Set("a", "123123")
-		s.Save()
-		c.String(200, "PONG")
-	})
+	for _, rc := range rcs {
+		rc.Construct(app)
+	}
 
 	s := &http.Server{
 		Addr:         listenAddr,
@@ -185,6 +190,9 @@ func initDatabase(app *App) {
 
 func initRedis(app *App) {
 	conf := app.Config["redis"]
+	if conf.Key("status").MustString("enable") == "disable" {
+		return
+	}
 	app.Redis = rediscli.NewClient(&rediscli.Options{
 		Network:  conf.Key("network").MustString("tcp"),
 		Addr:     conf.Key("host").MustString("127.0.0.1:6379"),
@@ -195,6 +203,9 @@ func initRedis(app *App) {
 
 func initSession(app *App) {
 	conf := app.Config["session"]
+	if conf.Key("status").MustString("enable") == "disable" {
+		return
+	}
 	store, err := redis.NewStore(
 		conf.Key("max_idle").MustInt(10),
 		conf.Key("network").MustString("tcp"),
