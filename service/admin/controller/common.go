@@ -19,4 +19,6 @@ func (c *Common) Construct(app *app.App) {
 	app.Router.NoRoute(func(c *gin.Context) {
 	})
 
+	app.Router.Static("/assets", "./assets")
+
 }

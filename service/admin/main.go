@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	app.New([]app.RouteBuilder{
+	app.New("../../config.ini", []app.RouteBuilder{
 		&controller.Common{},
 		&controller.Oauth2{},
 	})

@@ -34,9 +34,9 @@ type App struct {
 }
 
 // New 初始化app服务
-func New(rcs []RouteBuilder) {
+func New(cfp string, rcs []RouteBuilder) {
 
-	cfg, err := ini.Load("../../config.ini", "config.ini")
+	cfg, err := ini.Load(cfp, "config.ini")
 	if err != nil {
 		log.Printf("Fail load config file: %v\n", err)
 		os.Exit(1)
@@ -69,11 +69,13 @@ func New(rcs []RouteBuilder) {
 
 	// database MySQL
 	initDatabase(app)
-	if err := app.DB.DB().Ping(); err != nil {
-		log.Printf("Fail database error: %v\n", err)
-		os.Exit(1)
+	if app.DB != nil {
+		if err := app.DB.DB().Ping(); err != nil {
+			log.Printf("Fail database error: %v\n", err)
+			os.Exit(1)
+		}
+		defer app.DB.Close()
 	}
-	defer app.DB.Close()
 
 	// cache Redis
 	initRedis(app)
@@ -160,6 +162,9 @@ func initRecovery(router *gin.Engine, conf *ini.Section) {
 func initDatabase(app *App) {
 
 	conf := app.Config["db"]
+	if conf.Key("status").MustString("enable") == "disable" {
+		return
+	}
 
 	dbuser := conf.Key("user").MustString("")
 	if dbuser == "" {
