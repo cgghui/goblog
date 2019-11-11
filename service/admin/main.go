@@ -7,6 +7,7 @@ import (
 
 func main() {
 	app.New([]app.RouteBuilder{
+		&controller.Common{},
 		&controller.Oauth2{},
 	})
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"goblog/app"
 	"net/http"
 
@@ -14,12 +15,23 @@ type Oauth2 struct {
 
 //Construct 构造方法
 func (o *Oauth2) Construct(app *app.App) {
-	app.Router.GET("/oauth2/authorize", o.authorize)
+	app.Router.POST("/oauth2/authorize", o.authorize)
 	app.Router.GET("/oauth2/token", o.token)
 }
 
+// AuthorizeInput 授权提交的内容
+type AuthorizeInput struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
 func (o *Oauth2) authorize(c *gin.Context) {
-	c.String(http.StatusOK, "wait.....")
+	input := AuthorizeInput{}
+	if err := c.BindJSON(&input); err != nil {
+		c.Error(errors.New("无效参数"))
+		c.AsciiJSON(http.StatusOK, gin.H{"status": false, "code": 100, "msg": "无效参数"})
+		return
+	}
 }
 
 func (o *Oauth2) token(c *gin.Context) {

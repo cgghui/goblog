@@ -55,6 +55,8 @@ func New(rcs []RouteBuilder) {
 		Router: gin.New(),
 	}
 
+	gin.SetMode(app.Config["service"].Key("mode").MustString(gin.DebugMode))
+
 	listenAddr := app.Config["service"].Key("listenAddr").MustString("")
 	if listenAddr == "" {
 		log.Printf("Fail listen address empty\n")
