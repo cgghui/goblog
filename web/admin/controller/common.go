@@ -33,10 +33,8 @@ func (c *Common) Construct(app *app.App) {
 		})
 	})
 
-	app.Router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", gin.H{
-			"title": "Main website",
-		})
+	app.Router.GET("/", func(ctx *gin.Context) {
+		app.Output.DisplayHTML(ctx, "index.html")
 	})
 
 }

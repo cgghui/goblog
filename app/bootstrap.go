@@ -19,6 +19,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const (
+
+	// SystemName 系统名称
+	SystemName = "GoBlog"
+
+	// SystemVersion 系统版本
+	SystemVersion = "1.0.0"
+)
+
 // RouteBuilder 路由构造器
 type RouteBuilder interface {
 	Construct(*App)
@@ -31,6 +40,7 @@ type App struct {
 	DB      *gorm.DB
 	Redis   *rediscli.Client
 	Session redis.Store
+	Output  *Output
 }
 
 // New 初始化app服务
@@ -90,6 +100,12 @@ func New(cfp string, rcs []RouteBuilder) {
 	// Session
 	initSession(app)
 
+	// 输出至浏览器
+	initOutput(app)
+	app.Output.Assgin("sysn", SystemName)
+	app.Output.Assgin("sysv", SystemVersion)
+
+	//
 	for _, rc := range rcs {
 		rc.Construct(app)
 	}
