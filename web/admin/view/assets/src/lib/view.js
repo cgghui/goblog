@@ -49,7 +49,7 @@ layui.define(['laytpl', 'layer'], function(exports){
     });
     
     //跳转到登入页
-    location.hash = '/user/login'; 
+    location.hash = '/passport/login'; 
   };
   
   //Ajax请求

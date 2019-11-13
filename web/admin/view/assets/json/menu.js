@@ -259,7 +259,7 @@
     },{
       "name": "login"
       ,"title": "登入"
-      ,"jump": "user/login"
+      ,"jump": "passport/login"
     },{
       "name": "forget"
       ,"title": "忘记密码"

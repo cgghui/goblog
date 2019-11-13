@@ -65,13 +65,15 @@ func New(cfp string, rcs []RouteBuilder) {
 		Router: gin.New(),
 	}
 
-	gin.SetMode(app.Config["service"].Key("mode").MustString(gin.DebugMode))
-
 	listenAddr := app.Config["service"].Key("listenAddr").MustString("")
 	if listenAddr == "" {
 		log.Printf("Fail listen address empty\n")
 		os.Exit(1)
 	}
+
+	gin.SetMode(app.Config["service"].Key("mode").MustString(gin.DebugMode))
+
+	app.Router.Delims("{[", "]}")
 
 	// log and recovery
 	initLog(app.Router, app.Config["log"])

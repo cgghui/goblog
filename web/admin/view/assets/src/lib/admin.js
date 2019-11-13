@@ -27,10 +27,9 @@ layui.define('view', function(exports){
 
   //通用方法
   ,admin = {
-    v: '1.2.1 pro'
     
     //数据的异步请求
-    ,req: view.req
+    req: view.req
     
     //清除本地 token，并跳转到登入页
     ,exit: view.exit
