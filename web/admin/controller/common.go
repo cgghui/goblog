@@ -12,29 +12,29 @@ type Common struct {
 }
 
 //Construct 构造方法
-func (c *Common) Construct(app *app.App) {
+func (c *Common) Construct(appx *app.App) {
 
-	app.Router.Static("/assets", "./view/static")
+	appx.Router.Static("/assets", "./view/static")
 
-	app.Router.LoadHTMLFiles(
+	appx.Router.LoadHTMLFiles(
 		"./view/index.html",
-		"./view/error.html",
+		"./view/error_403.html",
+		"./view/error_404.html",
 	)
 
-	app.Router.NoMethod(func(c *gin.Context) {
-		c.HTML(http.StatusForbidden, "error.html", gin.H{
-			"title": "Main website",
-		})
+	appx.Output.Assgin("sysn", app.SystemName)
+	appx.Output.Assgin("sysv", app.SystemVersion)
+
+	appx.Router.NoMethod(func(ctx *gin.Context) {
+		appx.Output.DisplayHTML(ctx, "error_403.html", http.StatusForbidden)
 	})
 
-	app.Router.NoRoute(func(c *gin.Context) {
-		c.HTML(http.StatusNotFound, "error.html", gin.H{
-			"title": "Main website",
-		})
+	appx.Router.NoRoute(func(ctx *gin.Context) {
+		appx.Output.DisplayHTML(ctx, "error_404.html", http.StatusNotFound)
 	})
 
-	app.Router.GET("/", func(ctx *gin.Context) {
-		app.Output.DisplayHTML(ctx, "index.html")
+	appx.Router.GET("/", func(ctx *gin.Context) {
+		appx.Output.DisplayHTML(ctx, "index.html")
 	})
 
 }

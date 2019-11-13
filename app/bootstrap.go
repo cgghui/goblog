@@ -102,8 +102,6 @@ func New(cfp string, rcs []RouteBuilder) {
 
 	// 输出至浏览器
 	initOutput(app)
-	app.Output.Assgin("sysn", SystemName)
-	app.Output.Assgin("sysv", SystemVersion)
 
 	//
 	for _, rc := range rcs {

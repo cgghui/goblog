@@ -73,17 +73,17 @@ layui.extend({
       //遍历页签选项卡
       var matchTo
       ,tabs = $('#LAY_app_tabsheader>li');
-      
+
       tabs.each(function(index){
         var li = $(this)
         ,layid = li.attr('lay-id');
-        
+
         if(layid === pathURL){
           matchTo = true;
           tabsPage.index = index;
         }
       });
-      
+
       //如果未在选项卡中匹配到，则追加选项卡
       if(setter.pageTabs && pathURL !== '/'){
         if(!matchTo){
@@ -96,10 +96,10 @@ layui.extend({
           });
         }
       }
-      
+
       this.container = admin.tabsBody(tabsPage.index);
       setter.pageTabs || this.container.scrollTop(0); //如果不开启标签页，则跳转时重置滚动条
-      
+
       //定位当前tabs
       element.tabChange(FILTER_TAB_TBAS, pathURL);
       admin.tabsBodyChange(tabsPage.index);
