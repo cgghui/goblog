@@ -1,25 +1,16 @@
-/**
-
- @Name：全局配置
- @Author：贤心
- @Site：http://www.layui.com/admin/
- @License：LPPL（layui付费产品协议）
-    
- */
- 
-layui.define(['laytpl', 'layer', 'element', 'util'], function(exports){
+layui.define(['laytpl', 'layer', 'element', 'util'], function(exports) {
   exports('setter', {
-    container: 'LAY_app' //容器ID
+    container: '{{.box_name}}' //容器ID
     ,base: layui.cache.base //记录layuiAdmin文件夹所在路径
     ,views: layui.cache.base + 'views/' //视图所在目录
     ,entry: 'index' //默认视图文件名
     ,engine: '.html' //视图文件后缀名
     ,pageTabs: false //是否开启页面选项卡功能。单页版不推荐开启
-    
-    ,name: 'layuiAdmin Pro'
-    ,tableName: 'layuiAdmin' //本地存储表名
+
+    ,name: '{{.sysn}}'
+    ,tableName: 'goblog' //本地存储表名
     ,MOD_NAME: 'admin' //模块事件名
-    
+
     ,debug: true //是否开启调试模式。如开启，接口异常时会抛出异常 URL 等信息
     
     ,interceptor: false //是否开启未登入拦截

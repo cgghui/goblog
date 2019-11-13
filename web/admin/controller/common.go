@@ -24,12 +24,13 @@ func (c *Common) Construct(appx *app.App) {
 		"./view/index.html",
 		"./view/error_403.html",
 		"./view/error_404.html",
-		"./view/config.js.html",
+		"./view/config.tpl.js",
 	)
 
 	appx.Output.Assgin("sysn", app.SystemName)
 	appx.Output.Assgin("sysv", app.SystemVersion)
 	appx.Output.Assgin("surl", SSU)
+	appx.Output.Assgin("box_name", appx.Config["service"].Key("containerBoxName").MustString(""))
 
 	appx.Router.NoMethod(func(ctx *gin.Context) {
 		appx.Output.DisplayHTML(ctx, "error_403.html", http.StatusForbidden)
@@ -45,6 +46,6 @@ func (c *Common) Construct(appx *app.App) {
 
 	appx.Router.GET("/config.js", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "application/javascript")
-		appx.Output.DisplayHTML(ctx, "config.js.html")
+		appx.Output.DisplayHTML(ctx, "config.tpl.js")
 	})
 }
