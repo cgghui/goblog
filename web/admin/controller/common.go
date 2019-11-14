@@ -29,6 +29,8 @@ func (c *Common) Construct(appx *app.App) {
 
 	appx.Output.Assgin("sysn", app.SystemName)
 	appx.Output.Assgin("sysv", app.SystemVersion)
+	appx.Output.Assgin("sysAuthor", app.SystemAuthor)
+	appx.Output.Assgin("sysURL", app.SystemHomeURL)
 	appx.Output.Assgin("surl", SSU)
 	appx.Output.Assgin("container_name", appx.Config["service"].Key("frontend_ContainerName").MustString(""))
 	appx.Output.Assgin("front_end_version", appx.Config["service"].Key("frontend_Version").MustString(""))

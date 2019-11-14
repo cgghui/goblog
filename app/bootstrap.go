@@ -26,6 +26,12 @@ const (
 
 	// SystemVersion 系统版本
 	SystemVersion = "1.0.0"
+
+	// SystemHomeURL 系统URL地址
+	SystemHomeURL = "http://www.04559.com"
+
+	// SystemAuthor 系统作者
+	SystemAuthor = "chen guang hui"
 )
 
 // RouteBuilder 路由构造器
