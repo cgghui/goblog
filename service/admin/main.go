@@ -8,6 +8,6 @@ import (
 func main() {
 	app.New("../../config.ini", []app.RouteBuilder{
 		&controller.Common{},
-		&controller.Oauth2{},
+		&controller.Auth{},
 	})
 }
