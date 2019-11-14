@@ -171,7 +171,7 @@ layui.extend({
       if(admin.pageType === 'console') { //后台主体页
         renderPage();
       } else { //初始控制台结构
-        container.render('layout').done(function(){
+        container.render('home/layout').done(function(){
           renderPage();
           layui.element.render();
           

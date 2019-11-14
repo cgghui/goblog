@@ -3,7 +3,7 @@ layui.define(['laytpl', 'layer', 'element', 'util'], function(exports) {
     container: '{[.container_name]}' //容器ID
     ,base: layui.cache.base //记录layuiAdmin文件夹所在路径
     ,views: 'tpl/' //视图所在目录
-    ,entry: 'index' //默认视图文件名
+    ,entry: 'home/index' //默认视图文件名
     ,engine: '.html' //视图文件后缀名
     ,pageTabs: false //是否开启页面选项卡功能。单页版不推荐开启
     ,name: '{[.sysn]}'
