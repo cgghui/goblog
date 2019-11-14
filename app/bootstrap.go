@@ -19,19 +19,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// 系统预设参数
 const (
-
-	// SystemName 系统名称
-	SystemName = "GoBlog"
-
-	// SystemVersion 系统版本
-	SystemVersion = "1.0.0"
-
-	// SystemHomeURL 系统URL地址
-	SystemHomeURL = "http://www.04559.com"
-
-	// SystemAuthor 系统作者
-	SystemAuthor = "chen guang hui"
+	SystemName    = "GoBlog"               // 系统名称
+	SystemVersion = "1.0.0"                // 系统版本
+	SystemHomeURL = "http://www.04559.com" // 系统官方网址
+	SystemAuthor  = "chen guang hui"       // 系统作者
 )
 
 // RouteBuilder 路由构造器

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"goblog/app"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,14 +12,13 @@ type Common struct {
 }
 
 //Construct 构造方法
-func (c *Common) Construct(app *app.App) {
+func (c *Common) Construct(appx *app.App) {
 
-	app.Router.NoMethod(func(c *gin.Context) {
+	appx.Router.NoMethod(func(ctx *gin.Context) {
+		appx.Output.DisplayJSON(ctx, app.StatusForbidden, http.StatusForbidden)
 	})
 
-	app.Router.NoRoute(func(c *gin.Context) {
+	appx.Router.NoRoute(func(ctx *gin.Context) {
+		appx.Output.DisplayJSON(ctx, app.StatusNotFound, http.StatusNotFound)
 	})
-
-	app.Router.Static("/assets", "./assets")
-
 }
