@@ -32,8 +32,7 @@ var (
 	Output    *OutputFMT
 )
 
-// Init 初始化
-func Init() {
+func init() {
 
 	cfg, err := ini.Load("../../config.ini", "config.ini")
 	if err != nil {
