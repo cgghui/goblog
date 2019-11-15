@@ -21,11 +21,25 @@ type OutputJSON struct {
 	Data      gin.H  `json:"data"`
 }
 
+// Output 输出到浏览器的对象
+func Output(data ...gin.H) *OutputFMT {
+	if len(data) == 0 {
+		return &OutputFMT{gin.H{}}
+	}
+	return &OutputFMT{data[0]}
+}
+
 // Assgin 添加一个值
 // 已存在的将被替换 不存在的将被加入
 func (o *OutputFMT) Assgin(field string, value interface{}) *OutputFMT {
 	o.H[field] = value
 	return o
+}
+
+// Get 取出一个值
+func (o *OutputFMT) Get(field string) (val interface{}, ok bool) {
+	val, ok = o.H[field]
+	return
 }
 
 // Del 删除一个值

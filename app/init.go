@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/gin-contrib/sessions/redis"
-	"github.com/gin-gonic/gin"
 	rediscli "github.com/go-redis/redis/v7"
 	"github.com/jinzhu/gorm"
 	"gopkg.in/ini.v1"
@@ -29,7 +28,6 @@ var (
 	DBConn    *gorm.DB
 	RedisConn *rediscli.Client
 	Session   redis.Store
-	Output    *OutputFMT
 )
 
 func init() {
@@ -47,8 +45,6 @@ func init() {
 		"redis":   cfg.Section("Redis"),
 		"session": cfg.Section("Session"),
 	}
-
-	Output = &OutputFMT{H: gin.H{}}
 
 	initDatabase()
 	initRedis()

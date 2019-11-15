@@ -15,11 +15,11 @@ type Common struct {
 func (c *Common) Construct(appx *app.App) {
 
 	appx.NoMethod(func(ctx *gin.Context) {
-		app.Output.DisplayJSON(ctx, app.StatusForbidden, http.StatusForbidden)
+		app.Output().DisplayJSON(ctx, app.StatusForbidden, http.StatusForbidden)
 	})
 
 	appx.NoRoute(func(ctx *gin.Context) {
-		app.Output.DisplayJSON(ctx, app.StatusNotFound, http.StatusNotFound)
+		app.Output().DisplayJSON(ctx, app.StatusNotFound, http.StatusNotFound)
 	})
 
 }
