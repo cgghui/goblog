@@ -54,7 +54,7 @@ func init() {
 			log.Printf("Fail database error: %v\n", err)
 			os.Exit(1)
 		}
-		defer DBConn.Close()
+		//defer DBConn.Close()
 	}
 
 	initRedis()
@@ -63,7 +63,7 @@ func init() {
 			log.Printf("Fail connect redis: %v\n", err)
 			os.Exit(1)
 		}
-		defer RedisConn.Close()
+		//defer RedisConn.Close()
 	}
 
 	Output = &OutputFMT{H: gin.H{}}

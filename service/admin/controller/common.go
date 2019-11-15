@@ -21,4 +21,5 @@ func (c *Common) Construct(appx *app.App) {
 	appx.NoRoute(func(ctx *gin.Context) {
 		app.Output.DisplayJSON(ctx, app.StatusNotFound, http.StatusNotFound)
 	})
+
 }
