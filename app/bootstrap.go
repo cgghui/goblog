@@ -26,6 +26,22 @@ type App struct {
 // New 初始化app服务
 func New(rcs []RouteBuilder) {
 
+	if DBConn != nil {
+		if err := DBConn.DB().Ping(); err != nil {
+			log.Printf("Fail database error: %v\n", err)
+			os.Exit(1)
+		}
+		defer DBConn.Close()
+	}
+
+	if RedisConn != nil {
+		if _, err := RedisConn.Ping().Result(); err != nil {
+			log.Printf("Fail connect redis: %v\n", err)
+			os.Exit(1)
+		}
+		defer RedisConn.Close()
+	}
+
 	gin.DisableConsoleColor()
 
 	app := &App{gin.New()}

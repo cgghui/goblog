@@ -48,25 +48,10 @@ func init() {
 		"session": cfg.Section("Session"),
 	}
 
-	initDatabase()
-	if DBConn != nil {
-		if err := DBConn.DB().Ping(); err != nil {
-			log.Printf("Fail database error: %v\n", err)
-			os.Exit(1)
-		}
-		//defer DBConn.Close()
-	}
-
-	initRedis()
-	if RedisConn != nil {
-		if _, err := RedisConn.Ping().Result(); err != nil {
-			log.Printf("Fail connect redis: %v\n", err)
-			os.Exit(1)
-		}
-		//defer RedisConn.Close()
-	}
-
 	Output = &OutputFMT{H: gin.H{}}
+
+	initDatabase()
+	initRedis()
 }
 
 func initDatabase() {
