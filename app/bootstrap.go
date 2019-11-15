@@ -11,20 +11,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
-	rediscli "github.com/go-redis/redis/v7"
-	"github.com/jinzhu/gorm"
-	"gopkg.in/ini.v1"
-
-	// MySQL Driver
-	_ "github.com/go-sql-driver/mysql"
-)
-
-// 系统预设参数
-const (
-	SystemName    = "GoBlog"               // 系统名称
-	SystemVersion = "1.0.0"                // 系统版本
-	SystemHomeURL = "http://www.04559.com" // 系统官方网址
-	SystemAuthor  = "chen guang hui"       // 系统作者
 )
 
 // RouteBuilder 路由构造器
@@ -34,75 +20,30 @@ type RouteBuilder interface {
 
 // App App配置
 type App struct {
-	Config  map[string]*ini.Section
-	Router  *gin.Engine
-	DB      *gorm.DB
-	Redis   *rediscli.Client
-	Session redis.Store
-	Output  *Output
+	*gin.Engine
 }
 
 // New 初始化app服务
-func New(cfp string, rcs []RouteBuilder) {
-
-	cfg, err := ini.Load(cfp, "config.ini")
-	if err != nil {
-		log.Printf("Fail load config file: %v\n", err)
-		os.Exit(1)
-	}
+func New(rcs []RouteBuilder) {
 
 	gin.DisableConsoleColor()
 
-	app := &App{
-		Config: map[string]*ini.Section{
-			"log":     cfg.Section("log"),
-			"service": cfg.Section("service"),
-			"db":      cfg.Section("MySQL"),
-			"redis":   cfg.Section("Redis"),
-			"session": cfg.Section("Session"),
-		},
-		Router: gin.New(),
-	}
+	app := &App{gin.New()}
 
-	listenAddr := app.Config["service"].Key("listenAddr").MustString("")
+	listenAddr := SysConf["service"].Key("listenAddr").MustString("")
 	if listenAddr == "" {
 		log.Printf("Fail listen address empty\n")
 		os.Exit(1)
 	}
 
-	gin.SetMode(app.Config["service"].Key("mode").MustString(gin.DebugMode))
+	gin.SetMode(SysConf["service"].Key("mode").MustString(gin.DebugMode))
 
-	app.Router.Delims("{[", "]}")
+	app.Delims("{[", "]}")
 
-	// log and recovery
-	initLog(app.Router, app.Config["log"])
-	initRecovery(app.Router, app.Config["log"])
-
-	// database MySQL
-	initDatabase(app)
-	if app.DB != nil {
-		if err := app.DB.DB().Ping(); err != nil {
-			log.Printf("Fail database error: %v\n", err)
-			os.Exit(1)
-		}
-		defer app.DB.Close()
-	}
-
-	// cache Redis
-	initRedis(app)
-	if app.Redis != nil {
-		if _, err := app.Redis.Ping().Result(); err != nil {
-			log.Printf("Fail connect redis: %v\n", err)
-			os.Exit(1)
-		}
-		defer app.Redis.Close()
-	}
-
-	// Session
-	initSession(app)
-
-	// 输出至浏览器
-	initOutput(app)
+	// middleware
+	middlewareLog(app.Engine)
+	middlewareRecovery(app.Engine)
+	middlewareSession(app.Engine)
 
 	//
 	for _, rc := range rcs {
@@ -111,18 +52,18 @@ func New(cfp string, rcs []RouteBuilder) {
 
 	s := &http.Server{
 		Addr:         listenAddr,
-		Handler:      app.Router,
-		ReadTimeout:  time.Duration(app.Config["service"].Key("rtimeout").MustInt64(0)) * time.Second,
-		WriteTimeout: time.Duration(app.Config["service"].Key("wtimeout").MustInt64(0)) * time.Second,
+		Handler:      app.Engine,
+		ReadTimeout:  time.Duration(SysConf["service"].Key("rtimeout").MustInt64(0)) * time.Second,
+		WriteTimeout: time.Duration(SysConf["service"].Key("wtimeout").MustInt64(0)) * time.Second,
 	}
 
 	s.ListenAndServe()
 }
 
-// initLog 初始化日志
-func initLog(router *gin.Engine, conf *ini.Section) {
+// 日志中间件
+func middlewareLog(router *gin.Engine) {
 
-	logf := conf.Key("wwwlog").MustString("")
+	logf := SysConf["log"].Key("wwwlog").MustString("")
 	if logf == "" {
 		return
 	}
@@ -154,10 +95,10 @@ func initLog(router *gin.Engine, conf *ini.Section) {
 	return
 }
 
-// initRecovery 初始化异常恢复
-func initRecovery(router *gin.Engine, conf *ini.Section) {
+// 异常恢复中件间
+func middlewareRecovery(router *gin.Engine) {
 
-	logf := conf.Key("recovery").MustString("")
+	logf := SysConf["log"].Key("recovery").MustString("")
 	if logf == "" {
 		return
 	}
@@ -173,61 +114,14 @@ func initRecovery(router *gin.Engine, conf *ini.Section) {
 	return
 }
 
-// initDatabase 初始化数据库ORM
-func initDatabase(app *App) {
+// session中间件
+func middlewareSession(router *gin.Engine) {
 
-	conf := app.Config["db"]
+	conf := SysConf["session"]
 	if conf.Key("status").MustString("enable") == "disable" {
 		return
 	}
 
-	dbuser := conf.Key("user").MustString("")
-	if dbuser == "" {
-		log.Printf("Fail db user empty\n")
-		os.Exit(1)
-	}
-
-	db, err := gorm.Open(
-		"mysql",
-		fmt.Sprintf(
-			"%s:%s@(%s)/%s?charset=%s&parseTime=True&loc=Local",
-			dbuser,
-			conf.Key("password").MustString(""),
-			conf.Key("host").MustString("127.0.0.1:3306"),
-			conf.Key("dbname").MustString(dbuser),
-			conf.Key("charset").MustString("utf8"),
-		),
-	)
-	if err != nil {
-		log.Printf("Fail connect db: %v\n", err)
-		os.Exit(1)
-	}
-
-	db.DB().SetMaxIdleConns(conf.Key("max_idle").MustInt(9))
-	db.DB().SetMaxOpenConns(conf.Key("max_open").MustInt(0))
-	db.SingularTable(true)
-
-	app.DB = db
-}
-
-func initRedis(app *App) {
-	conf := app.Config["redis"]
-	if conf.Key("status").MustString("enable") == "disable" {
-		return
-	}
-	app.Redis = rediscli.NewClient(&rediscli.Options{
-		Network:  conf.Key("network").MustString("tcp"),
-		Addr:     conf.Key("host").MustString("127.0.0.1:6379"),
-		Password: conf.Key("auth").MustString(""),
-		DB:       conf.Key("index").MustInt(0),
-	})
-}
-
-func initSession(app *App) {
-	conf := app.Config["session"]
-	if conf.Key("status").MustString("enable") == "disable" {
-		return
-	}
 	store, err := redis.NewStore(
 		conf.Key("max_idle").MustInt(10),
 		conf.Key("network").MustString("tcp"),
@@ -239,6 +133,8 @@ func initSession(app *App) {
 		log.Printf("Fail init session: %v\n", err)
 		os.Exit(1)
 	}
-	app.Session = store
-	app.Router.Use(sessions.Sessions(conf.Key("name").MustString("SESSION"), store))
+
+	Session = store
+
+	router.Use(sessions.Sessions(conf.Key("name").MustString("SESSION"), store))
 }

@@ -13,7 +13,7 @@ type Auth struct {
 
 //Construct 构造方法
 func (o *Auth) Construct(app *app.App) {
-	app.Router.POST("/auth/params", o.params)
+	app.GET("/auth/params", o.params)
 }
 
 // AuthorizeInput 授权提交的内容
