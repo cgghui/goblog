@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"goblog/app"
 
 	"github.com/gin-gonic/gin"
@@ -14,8 +13,7 @@ type Auth struct {
 
 //Construct 构造方法
 func (o *Auth) Construct(app *app.App) {
-	app.GET("/auth/params", o.params)
-	app.GET("/auth/params2", o.params2)
+	app.GET("/auth/config", o.index)
 }
 
 // AuthorizeInput 授权提交的内容
@@ -24,10 +22,6 @@ type AuthorizeInput struct {
 	Password string `json:"password" binding:"required"`
 }
 
-func (o *Auth) params(ctx *gin.Context) {
-	app.Output().Assgin("a", "11111")
-}
+func (o *Auth) index(ctx *gin.Context) {
 
-func (o *Auth) params2(ctx *gin.Context) {
-	fmt.Println(app.Output().Get("a"))
 }
