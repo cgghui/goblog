@@ -64,7 +64,7 @@ func (c *Configs) Int() int {
 	}
 	ret, err := strconv.Atoi(c.Value)
 	if err != nil {
-		panic(fmt.Sprintf("Error: %s[%s] = %s value not int", c.Namespace, c.Field, c.Value))
+		panic(fmt.Sprintf("Error: %s[%s] = %s value not int %v", c.Namespace, c.Field, c.Value, err))
 	}
 	return ret
 }
@@ -76,7 +76,7 @@ func (c *Configs) Val() interface{} {
 		{
 			ret, err := strconv.Atoi(c.Value)
 			if err != nil {
-				panic(fmt.Sprintf("Error: %s[%s] = %s value not int", c.Namespace, c.Field, c.Value))
+				panic(fmt.Sprintf("Error: %s[%s] = %s value not int %v", c.Namespace, c.Field, c.Value, err))
 			}
 			return ret
 		}
@@ -84,7 +84,7 @@ func (c *Configs) Val() interface{} {
 		{
 			ret, err := strconv.ParseFloat(c.Value, 64)
 			if err != nil {
-				panic(fmt.Sprintf("Error: %s[%s] = %s value not float ( 64 or 32 )", c.Namespace, c.Field, c.Value))
+				panic(fmt.Sprintf("Error: %s[%s] = %s value not float ( 64 or 32 ) %v", c.Namespace, c.Field, c.Value, err))
 			}
 			return ret
 		}

@@ -13,7 +13,7 @@ type Auth struct {
 
 //Construct 构造方法
 func (o *Auth) Construct(app *app.App) {
-	app.GET("/auth/config", o.index)
+	app.GET("/auth/status", o.status)
 }
 
 // AuthorizeInput 授权提交的内容
@@ -22,6 +22,6 @@ type AuthorizeInput struct {
 	Password string `json:"password" binding:"required"`
 }
 
-func (o *Auth) index(ctx *gin.Context) {
+func (o *Auth) status(ctx *gin.Context) {
 
 }
