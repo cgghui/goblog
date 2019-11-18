@@ -32,21 +32,19 @@ func init() {
 }
 
 // GetConfigField 取出一个值
-func GetConfigField(namespace, field string, cfg *Configs) bool {
+func GetConfigField(namespace, field string) *Configs {
 	if val, ok := conf[namespace][field]; ok {
-		cfg = val
-		return true
+		return val
 	}
-	return false
+	panic(fmt.Sprintf("Error: conf[%s][%s] does not exist", namespace, field))
 }
 
 // GetConfigNamespace 取出一个空间的配置
-func GetConfigNamespace(namespace string, cfg *map[string]*Configs) bool {
+func GetConfigNamespace(namespace string) map[string]*Configs {
 	if val, ok := conf[namespace]; ok {
-		*cfg = val
-		return true
+		return val
 	}
-	return false
+	panic(fmt.Sprintf("Error: conf[%s] does not exist", namespace))
 }
 
 // String value为string
