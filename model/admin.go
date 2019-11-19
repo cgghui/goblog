@@ -73,3 +73,8 @@ func AdminGeneratePassword(pwd string) string {
 	}
 	return string(temp)
 }
+
+// AdminVerifyPassword 密码检验
+func AdminVerifyPassword(hashedPassword, password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil
+}

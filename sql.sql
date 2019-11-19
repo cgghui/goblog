@@ -41,7 +41,7 @@ CREATE TABLE `gb_admins`  (
 -- ----------------------------
 -- Records of gb_admins
 -- ----------------------------
-INSERT INTO `gb_admins` VALUES (1, 'admin', 'admin', '123123', 'normal', 'Y', '', '127.0.0.1', '2019-11-16 16:31:49', '2019-11-16 16:31:47', NULL);
+INSERT INTO `gb_admins` VALUES (1, '草开', 'admin', '$2a$10$X0VV5YWrmowEpiqnVxPk0e8VFQBmwWKrk.AIeFWUOgY8uPrS2iFcO', 'normal', 'Y', '', '127.0.0.1', '2019-11-16 16:31:49', '2019-11-16 16:31:47', NULL);
 
 -- ----------------------------
 -- Table structure for gb_admins_log
