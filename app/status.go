@@ -8,6 +8,7 @@ const (
 	StatusNotFound  = 10001 // http status 404 表示请求的资源不存在
 
 	StatusQueryInvalid = 11000
+	StatusUserNotExist = 11001
 )
 
 var statusRet = map[int]bool{
@@ -15,6 +16,7 @@ var statusRet = map[int]bool{
 	StatusForbidden:    false,
 	StatusNotFound:     false,
 	StatusQueryInvalid: false,
+	StatusUserNotExist: false,
 }
 
 var statusMsg = map[int]string{
@@ -22,6 +24,7 @@ var statusMsg = map[int]string{
 	StatusForbidden:    "forbidden",
 	StatusNotFound:     "not found",
 	StatusQueryInvalid: "无效参数",
+	StatusUserNotExist: "账号不存在",
 }
 
 // StatusRet 返回相关结果

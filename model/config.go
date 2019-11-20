@@ -19,6 +19,14 @@ type Configs struct {
 	Value     string `gorm:"type:varchar(512)"`
 }
 
+// ConfigAdminLCC 管理员登录时启用验证码的条件
+// Config Admin Login Captcha Condition
+type ConfigAdminLCC struct {
+	Password       int `json:"pwd_errn"`
+	Captcha        int `json:"captcha_errn"`
+	GoogleAuthCode int `json:"google_authcode_errn"`
+}
+
 func init() {
 	cfgs := []Configs{}
 	app.DBConn.Find(&cfgs)
@@ -65,6 +73,14 @@ func (c *Configs) Int() int {
 		panic(fmt.Sprintf("Error: %s[%s] = %s value not int %v", c.Namespace, c.Field, c.Value, err))
 	}
 	return ret
+}
+
+// BindJSON BIND JSON
+func (c *Configs) BindJSON(result interface{}) {
+	if err := json.Unmarshal([]byte(c.Value), &result); err != nil {
+		panic(fmt.Sprintf("Error: %s[%s] = %s BindJSON %v", c.Namespace, c.Field, c.Value, err))
+	}
+	return
 }
 
 // Val 获取结果

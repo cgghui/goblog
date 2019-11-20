@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"goblog/app"
 	"goblog/model"
 
@@ -10,34 +9,45 @@ import (
 
 // Auth 授权
 type Auth struct {
-	*app.App
 }
 
 //Construct 构造方法
 func (a *Auth) Construct(app *app.App) {
-	app.GET("/auth/status", a.status)
+	app.GET("/auth/check", a.check)
 }
 
-// AuthorizeInput 授权提交的内容
-type AuthorizeInput struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
+func (a *Auth) check(ctx *gin.Context) {
 
-func (a *Auth) status(ctx *gin.Context) {
+	username := ctx.Query("username")
+	if len(username) == 0 {
+		app.Output(gin.H{"tip": "请输入账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
 
-	user := &model.Admins{}
-	app.DBConn.Where("username = ?", "admin").First(user)
-	fmt.Printf("%+v", user)
-	user.ErrorCounterIncr("pwd")
+	admin := &model.Admins{}
+	app.DBConn.Where("username = ?", username).First(admin)
 
-	// outoput := app.Output()
+	if !admin.Has() {
+		app.Output(gin.H{"username": ""}).DisplayJSON(ctx, app.StatusUserNotExist)
+		return
+	}
 
-	// username, ok := ctx.GetQuery("username")
-	// if !ok || len(username) == 0 {
-	// 	outoput.Assgin("info", "请输入账号")
-	// 	outoput.DisplayJSON(ctx, app.StatusQueryInvalid)
-	// 	return
-	// }
+	admin.Init()
 
+	data := gin.H{
+		"locked":          true,
+		"unlock_ttl":      86400,
+		"pubkey":          "",
+		"captcha_is_open": false,
+		"captcha":         gin.H{},
+	}
+	if model.AdminLoginCaptchaCheck(admin) {
+		data["captcha_is_open"] = true
+		data["captcha"] = gin.H{
+			"image": "",
+			"token": "",
+		}
+	}
+
+	app.Output(data).DisplayJSON(ctx, app.StatusOK)
 }

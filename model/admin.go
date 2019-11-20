@@ -1,6 +1,9 @@
 package model
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"goblog/app"
@@ -20,6 +23,8 @@ type Admins struct {
 	CaptchaIsOpen  string `gorm:"type:enum('Y','C')"`
 	GoogleAuthCode string `gorm:"type:varchar(256)"`
 	LoginIP        string `gorm:"type:varchar(32)"`
+	PriKey         *rsa.PrivateKey
+	PubKey         *rsa.PublicKey
 }
 
 // AdminsLog 全局参数配置
@@ -35,12 +40,12 @@ type AdminsLog struct {
 	CreatedAt     time.Time `gorm:"type:timestamp"`
 }
 
-// AdminsErrorCounter 登录时操作错误记数器
-type AdminsErrorCounter struct {
-	Password       uint
-	Captcha        uint
-	GoogleAuthCode uint
-}
+// 管理员登录时的错误记录字段
+var (
+	AdminCounterPassword       = "password"
+	AdminCounterCaptcha        = "captcha"
+	AdminCounterGoogleAuthCode = "google_authcode"
+)
 
 // AdminLoginCaptchaCheck 检查后台管理员登录是否须要使用验证码
 // return true开启 false关闭
@@ -61,7 +66,16 @@ func AdminLoginCaptchaCheck(admin ...*Admins) bool {
 		return true
 	}
 
-	// ......
+	ret := ConfigAdminLCC{}
+	GetConfigField("admin", "login_captcha_condition").BindJSON(&ret)
+
+	// 如果有符合验证码开启条件的 则开启
+	n1 := admin[0].ErrorCounterGet(AdminCounterPassword)
+	n2 := admin[0].ErrorCounterGet(AdminCounterCaptcha)
+	n3 := admin[0].ErrorCounterGet(AdminCounterGoogleAuthCode)
+	if n1 > ret.Password || n2 > ret.Captcha || n3 > ret.GoogleAuthCode {
+		return true
+	}
 
 	return false
 }
@@ -80,6 +94,53 @@ func AdminVerifyPassword(hashedPassword, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil
 }
 
+// Has 管理员是否存在
+func (a *Admins) Has() bool {
+	return a.ID != 0
+}
+
+// Init 初始化
+// 创建RSA证书
+func (a *Admins) Init() {
+	k := "AdminsCert_" + a.Username
+	pemtext, err := app.RedisConn.HGetAll(k).Result()
+	if err != nil {
+		panic(fmt.Sprintf("Error: model.admins.Init Redis %v", err))
+	}
+	if len(pemtext) == 0 {
+		key, err := rsa.GenerateKey(rand.Reader, 1024)
+		if err != nil {
+			panic(fmt.Sprintf("Error: model.admins.Init Generate RSA key %v", err))
+		}
+		a.PriKey = key
+		a.PubKey = &key.PublicKey
+
+		keyBytes, err := x509.MarshalPKIXPublicKey(a.PubKey)
+		if err != nil {
+			panic(fmt.Sprintf("Error: model.admins.Init build RSA public key %v", err))
+		}
+
+		saved := app.RedisConn.HMSet(k, map[string]interface{}{
+			"pubkey": keyBytes,
+			"prikey": x509.MarshalPKCS1PrivateKey(a.PriKey),
+		})
+		if saved.Err() != nil {
+			panic(fmt.Sprintf("Error: model.admins.Init RSA key saved fail %v", err))
+		}
+	} else {
+		pubkey, err := x509.ParsePKIXPublicKey([]byte(pemtext["pubkey"]))
+		if err != nil {
+			panic(fmt.Sprintf("Error: model.admins.Init parse public key fail %v", err))
+		}
+		prikey, err := x509.ParsePKCS1PrivateKey([]byte(pemtext["prikey"]))
+		if err != nil {
+			panic(fmt.Sprintf("Error: model.admins.Init parse private key fail %v", err))
+		}
+		a.PubKey = pubkey.(*rsa.PublicKey)
+		a.PriKey = prikey
+	}
+}
+
 // VerifyPassword 密码检验
 func (a *Admins) VerifyPassword(password string) bool {
 	return AdminVerifyPassword(a.Password, password)
@@ -87,54 +148,35 @@ func (a *Admins) VerifyPassword(password string) bool {
 
 // ErrorCounterGet 取出错误记录
 func (a *Admins) ErrorCounterGet(field string) int {
-	// 从Redis获取数据失败
-	data := app.RedisConn.HGet(a.eckey(), field).String()
 
-	// 将数据解析为JSON失败
+	data, err := app.RedisConn.HGet(a.eckey(), field).Result()
+	if err != nil {
+		return 0
+	}
+
 	ret := make([]interface{}, 0)
 	if err := json.Unmarshal([]byte(data), &ret); err != nil || len(ret) != 2 {
 		return 0
 	}
-	// 第1个索引位置的值不是一个时间戳
-	et, ok := ret[1].(int64)
-	if !ok {
+
+	s := time.Unix(int64(ret[1].(float64)), 0).Sub(time.Now()).Seconds()
+	if s <= 0 {
+		a.ErrorCounterClear(field)
 		return 0
 	}
-	// 限制已经失效，重0开始计数
-	if time.Unix(et, 0).Sub(time.Now()).Seconds() <= 0 {
-		return 0
-	}
-	n, ok := ret[0].(int)
-	if !ok {
-		return 0
-	}
-	return n
+
+	return int(ret[0].(float64))
 }
 
 // ErrorCounterIncr 增加一次错误记录
 func (a *Admins) ErrorCounterIncr(field string) {
-	data, err := json.Marshal([]interface{}{a.ErrorCounterGet(field) + 1, time.Now().Unix()})
+	ttl := time.Duration(GetConfigField("admin", "login_counter_expire").Int()) * time.Second
+	data, err := json.Marshal([]interface{}{a.ErrorCounterGet(field) + 1, time.Now().Add(ttl).Unix()})
 	if err != nil {
-		panic(fmt.Sprintf("Error: model.ErrorCounterIncr %v", err))
+		panic(fmt.Sprintf("Error: model.admins.ErrorCounterIncr %v", err))
 	}
 	if err := app.RedisConn.HSet(a.eckey(), field, data).Err(); err != nil {
-		panic(fmt.Sprintf("Error: model.ErrorCounterIncr %v", err))
-	}
-	return
-}
-
-// ErrorCounterDecr 减去一次错误记录
-func (a *Admins) ErrorCounterDecr(field string) {
-	n := a.ErrorCounterGet(field) - 1
-	if n <= 0 {
-		n = 0
-	}
-	data, err := json.Marshal([]interface{}{n, time.Now().Unix()})
-	if err != nil {
-		panic(fmt.Sprintf("Error: model.ErrorCounterDecr %v", err))
-	}
-	if err := app.RedisConn.HSet(a.eckey(), field, data).Err(); err != nil {
-		panic(fmt.Sprintf("Error: model.ErrorCounterDecr %v", err))
+		panic(fmt.Sprintf("Error: model.admins.ErrorCounterIncr %v", err))
 	}
 	return
 }
@@ -144,13 +186,13 @@ func (a *Admins) ErrorCounterClear(fields ...string) {
 	// 删除所有
 	if len(fields) == 0 {
 		if err := app.RedisConn.Del(a.eckey()).Err(); err != nil {
-			panic(fmt.Sprintf("Error: model.ErrorCounterClear %v", err))
+			panic(fmt.Sprintf("Error: model.admins.ErrorCounterClear %v", err))
 		}
 		return
 	}
 	// 删除指定
 	if err := app.RedisConn.HDel(a.eckey(), fields...).Err(); err != nil {
-		panic(fmt.Sprintf("Error: model.ErrorCounterClear %v", err))
+		panic(fmt.Sprintf("Error: model.admins.ErrorCounterClear %v", err))
 	}
 	return
 }
