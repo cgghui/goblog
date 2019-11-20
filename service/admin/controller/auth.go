@@ -1,10 +1,16 @@
 package controller
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
+	"fmt"
 	"goblog/app"
 	"goblog/model"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mojocn/base64Captcha"
 )
 
 // Auth 授权
@@ -32,20 +38,38 @@ func (a *Auth) check(ctx *gin.Context) {
 		return
 	}
 
-	admin.Init()
+	admin.BuildKeyToRSA()
 
 	data := gin.H{
 		"locked":          true,
 		"unlock_ttl":      86400,
-		"pubkey":          "",
+		"pubkey":          admin.GetPasswordEncryptRSA(),
 		"captcha_is_open": false,
 		"captcha":         gin.H{},
 	}
+
 	if model.AdminLoginCaptchaCheck(admin) {
 		data["captcha_is_open"] = true
+		// 解析配置
+		conf := base64Captcha.ConfigCharacter{}
+		model.GetConfigField("admin", "login_captcha_config").BindJSON(&conf)
+		// 构建验证码数据
+		cimg := base64Captcha.EngineCharCreate(conf)
+		verifyCode, err := json.Marshal([]interface{}{
+			[]byte(cimg.VerifyValue),
+			time.Now().Add(180 * time.Second).Unix(),
+		})
+		if err != nil {
+			panic(fmt.Sprintf("Error: create captcha fail-1 %v", err))
+		}
+		// 加密数据
+		token, err := rsa.EncryptPKCS1v15(rand.Reader, admin.PubKey, verifyCode)
+		if err != nil {
+			panic(fmt.Sprintf("Error: create captcha fail-2 %v", err))
+		}
 		data["captcha"] = gin.H{
-			"image": "",
-			"token": "",
+			"image": base64Captcha.CaptchaWriteToBase64Encoding(cimg),
+			"token": token,
 		}
 	}
 

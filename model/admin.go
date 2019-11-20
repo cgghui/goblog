@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"goblog/app"
 	"time"
@@ -99,25 +100,24 @@ func (a *Admins) Has() bool {
 	return a.ID != 0
 }
 
-// Init 初始化
-// 创建RSA证书
-func (a *Admins) Init() {
+// BuildKeyToRSA 创建RSA密钥 永久性使用
+func (a *Admins) BuildKeyToRSA() {
 	k := "AdminsCert_" + a.Username
 	pemtext, err := app.RedisConn.HGetAll(k).Result()
 	if err != nil {
-		panic(fmt.Sprintf("Error: model.admins.Init Redis %v", err))
+		panic(fmt.Sprintf("Error: model.admins.BuildKeyToRSA Redis %v", err))
 	}
 	if len(pemtext) == 0 {
 		key, err := rsa.GenerateKey(rand.Reader, 1024)
 		if err != nil {
-			panic(fmt.Sprintf("Error: model.admins.Init Generate RSA key %v", err))
+			panic(fmt.Sprintf("Error: model.admins.BuildKeyToRSA Generate RSA key %v", err))
 		}
 		a.PriKey = key
 		a.PubKey = &key.PublicKey
 
 		keyBytes, err := x509.MarshalPKIXPublicKey(a.PubKey)
 		if err != nil {
-			panic(fmt.Sprintf("Error: model.admins.Init build RSA public key %v", err))
+			panic(fmt.Sprintf("Error: model.admins.BuildKeyToRSA build RSA public key %v", err))
 		}
 
 		saved := app.RedisConn.HMSet(k, map[string]interface{}{
@@ -125,20 +125,48 @@ func (a *Admins) Init() {
 			"prikey": x509.MarshalPKCS1PrivateKey(a.PriKey),
 		})
 		if saved.Err() != nil {
-			panic(fmt.Sprintf("Error: model.admins.Init RSA key saved fail %v", err))
+			panic(fmt.Sprintf("Error: model.admins.BuildKeyToRSA RSA key saved fail %v", err))
 		}
 	} else {
 		pubkey, err := x509.ParsePKIXPublicKey([]byte(pemtext["pubkey"]))
 		if err != nil {
-			panic(fmt.Sprintf("Error: model.admins.Init parse public key fail %v", err))
+			panic(fmt.Sprintf("Error: model.admins.BuildKeyToRSA parse public key fail %v", err))
 		}
 		prikey, err := x509.ParsePKCS1PrivateKey([]byte(pemtext["prikey"]))
 		if err != nil {
-			panic(fmt.Sprintf("Error: model.admins.Init parse private key fail %v", err))
+			panic(fmt.Sprintf("Error: model.admins.BuildKeyToRSA parse private key fail %v", err))
 		}
 		a.PubKey = pubkey.(*rsa.PublicKey)
 		a.PriKey = prikey
 	}
+}
+
+// GetPasswordEncryptRSA 创建RSA密钥 临时使用
+func (a *Admins) GetPasswordEncryptRSA() string {
+
+	k := "AdminsCertTemp_" + a.Username
+
+	PriKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(fmt.Sprintf("Error: model.admins.GetPasswordEncryptRSA Generate RSA key %v", err))
+	}
+	PubKey := &PriKey.PublicKey
+
+	keyBytes, err := x509.MarshalPKIXPublicKey(PubKey)
+	if err != nil {
+		panic(fmt.Sprintf("Error: model.admins.GetPasswordEncryptRSA build RSA public key %v", err))
+	}
+
+	saved := app.RedisConn.HMSet(k, map[string]interface{}{
+		"pubkey":    keyBytes,
+		"prikey":    x509.MarshalPKCS1PrivateKey(PriKey),
+		"create_at": time.Now().Unix(),
+	})
+	if saved.Err() != nil {
+		panic(fmt.Sprintf("Error: model.admins.GetPasswordEncryptRSA RSA key saved fail %v", err))
+	}
+
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: keyBytes}))
 }
 
 // VerifyPassword 密码检验
