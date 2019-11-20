@@ -28,7 +28,7 @@ func (a *Auth) check(ctx *gin.Context) {
 	app.DBConn.Where("username = ?", username).First(admin)
 
 	if !admin.Has() {
-		app.Output(gin.H{"username": ""}).DisplayJSON(ctx, app.StatusUserNotExist)
+		app.Output(gin.H{"username": username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
 	}
 
