@@ -1,7 +1,9 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
+	"goblog/app"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -35,7 +37,6 @@ type AdminsLog struct {
 
 // AdminsErrorCounter 登录时操作错误记数器
 type AdminsErrorCounter struct {
-	*Admins
 	Password       uint
 	Captcha        uint
 	GoogleAuthCode uint
@@ -77,4 +78,83 @@ func AdminGeneratePassword(pwd string) string {
 // AdminVerifyPassword 密码检验
 func AdminVerifyPassword(hashedPassword, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil
+}
+
+// VerifyPassword 密码检验
+func (a *Admins) VerifyPassword(password string) bool {
+	return AdminVerifyPassword(a.Password, password)
+}
+
+// ErrorCounterGet 取出错误记录
+func (a *Admins) ErrorCounterGet(field string) int {
+	// 从Redis获取数据失败
+	data := app.RedisConn.HGet(a.eckey(), field).String()
+
+	// 将数据解析为JSON失败
+	ret := make([]interface{}, 0)
+	if err := json.Unmarshal([]byte(data), &ret); err != nil || len(ret) != 2 {
+		return 0
+	}
+	// 第1个索引位置的值不是一个时间戳
+	et, ok := ret[1].(int64)
+	if !ok {
+		return 0
+	}
+	// 限制已经失效，重0开始计数
+	if time.Unix(et, 0).Sub(time.Now()).Seconds() <= 0 {
+		return 0
+	}
+	n, ok := ret[0].(int)
+	if !ok {
+		return 0
+	}
+	return n
+}
+
+// ErrorCounterIncr 增加一次错误记录
+func (a *Admins) ErrorCounterIncr(field string) {
+	data, err := json.Marshal([]interface{}{a.ErrorCounterGet(field) + 1, time.Now().Unix()})
+	if err != nil {
+		panic(fmt.Sprintf("Error: model.ErrorCounterIncr %v", err))
+	}
+	if err := app.RedisConn.HSet(a.eckey(), field, data).Err(); err != nil {
+		panic(fmt.Sprintf("Error: model.ErrorCounterIncr %v", err))
+	}
+	return
+}
+
+// ErrorCounterDecr 减去一次错误记录
+func (a *Admins) ErrorCounterDecr(field string) {
+	n := a.ErrorCounterGet(field) - 1
+	if n <= 0 {
+		n = 0
+	}
+	data, err := json.Marshal([]interface{}{n, time.Now().Unix()})
+	if err != nil {
+		panic(fmt.Sprintf("Error: model.ErrorCounterDecr %v", err))
+	}
+	if err := app.RedisConn.HSet(a.eckey(), field, data).Err(); err != nil {
+		panic(fmt.Sprintf("Error: model.ErrorCounterDecr %v", err))
+	}
+	return
+}
+
+// ErrorCounterClear 清除错误记录
+func (a *Admins) ErrorCounterClear(fields ...string) {
+	// 删除所有
+	if len(fields) == 0 {
+		if err := app.RedisConn.Del(a.eckey()).Err(); err != nil {
+			panic(fmt.Sprintf("Error: model.ErrorCounterClear %v", err))
+		}
+		return
+	}
+	// 删除指定
+	if err := app.RedisConn.HDel(a.eckey(), fields...).Err(); err != nil {
+		panic(fmt.Sprintf("Error: model.ErrorCounterClear %v", err))
+	}
+	return
+}
+
+func (a *Admins) eckey() string {
+	return "AdminsErrorCounter_" + a.Username
 }

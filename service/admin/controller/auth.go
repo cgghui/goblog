@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"fmt"
 	"goblog/app"
+	"goblog/model"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,13 +26,18 @@ type AuthorizeInput struct {
 
 func (a *Auth) status(ctx *gin.Context) {
 
-	outoput := app.Output()
+	user := &model.Admins{}
+	app.DBConn.Where("username = ?", "admin").First(user)
+	fmt.Printf("%+v", user)
+	user.ErrorCounterIncr("pwd")
 
-	username, ok := ctx.GetQuery("username")
-	if !ok || len(username) == 0 {
-		outoput.Assgin("info", "请输入账号")
-		outoput.DisplayJSON(ctx, app.StatusQueryInvalid)
-		return
-	}
+	// outoput := app.Output()
+
+	// username, ok := ctx.GetQuery("username")
+	// if !ok || len(username) == 0 {
+	// 	outoput.Assgin("info", "请输入账号")
+	// 	outoput.DisplayJSON(ctx, app.StatusQueryInvalid)
+	// 	return
+	// }
 
 }
