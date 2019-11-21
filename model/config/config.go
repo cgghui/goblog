@@ -1,10 +1,11 @@
-package model
+package config
 
 import (
 	"encoding/json"
 	"fmt"
 	"goblog/app"
 	"strconv"
+	"time"
 )
 
 //conf 记录所有的配置数据
@@ -19,12 +20,17 @@ type Configs struct {
 	Value     string `gorm:"type:varchar(512)"`
 }
 
-// ConfigAdminLCC 管理员登录时启用验证码的条件
-// Config Admin Login Captcha Condition
-type ConfigAdminLCC struct {
+// AdminLCC 管理员登录时启用验证码的条件 Admin Login Captcha Condition
+type AdminLCC struct {
 	Password       int `json:"pwd_errn"`
 	Captcha        int `json:"captcha_errn"`
 	GoogleAuthCode int `json:"google_authcode_errn"`
+}
+
+// AdminLMP 管理员登录 防止恶意尝试错误密码 Admin Login Malice Prevent
+type AdminLMP struct {
+	Password int   `json:"pwd_errn"`
+	LockTime int64 `json:"lock_time"`
 }
 
 func init() {
@@ -75,12 +81,29 @@ func (c *Configs) Int() int {
 	return ret
 }
 
-// BindJSON BIND JSON
-func (c *Configs) BindJSON(result interface{}) {
+// BindStruct BIND JSON
+func (c *Configs) BindStruct(result interface{}) {
 	if err := json.Unmarshal([]byte(c.Value), &result); err != nil {
 		panic(fmt.Sprintf("Error: %s[%s] = %s BindJSON %v", c.Namespace, c.Field, c.Value, err))
 	}
 	return
+}
+
+// Time value为time
+func (c *Configs) Time() time.Duration {
+	if c.Type != "time" {
+		panic(fmt.Sprintf("Error: %s[%s] = %s value not time", c.Namespace, c.Field, c.Value))
+	}
+	ret, err := strconv.ParseInt(c.Value, 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("Error: %s[%s] = %s value not time %v", c.Namespace, c.Field, c.Value, err))
+	}
+	return time.Duration(ret) * time.Second
+}
+
+// TimeNowAddToUnix 将时间类型的数据增加到当前时间 以时间戳返回
+func (c *Configs) TimeNowAddToUnix() int64 {
+	return time.Now().Add(c.Time()).Unix()
 }
 
 // Val 获取结果
@@ -109,6 +132,14 @@ func (c *Configs) Val() interface{} {
 				panic(fmt.Sprintf("Error: %s[%s] = %s value not json %v", c.Namespace, c.Field, c.Value, err))
 			}
 			return ret
+		}
+	case "time":
+		{
+			ret, err := strconv.ParseInt(c.Value, 10, 64)
+			if err != nil {
+				panic(fmt.Sprintf("Error: %s[%s] = %s value not time %v", c.Namespace, c.Field, c.Value, err))
+			}
+			return time.Duration(ret) * time.Second
 		}
 	}
 	return c.Value

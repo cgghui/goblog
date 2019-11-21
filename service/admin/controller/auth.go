@@ -1,16 +1,10 @@
 package controller
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"encoding/json"
-	"fmt"
 	"goblog/app"
-	"goblog/model"
-	"time"
+	"goblog/model/adminsys"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mojocn/base64Captcha"
 )
 
 // Auth 授权
@@ -30,7 +24,7 @@ func (a *Auth) check(ctx *gin.Context) {
 		return
 	}
 
-	admin := &model.Admins{}
+	admin := &adminsys.Admins{}
 	app.DBConn.Where("username = ?", username).First(admin)
 
 	if !admin.Has() {
@@ -43,34 +37,25 @@ func (a *Auth) check(ctx *gin.Context) {
 	data := gin.H{
 		"locked":          true,
 		"unlock_ttl":      86400,
-		"pubkey":          admin.GetPasswordEncryptRSA(),
+		"pubkey":          "",
 		"captcha_is_open": false,
 		"captcha":         gin.H{},
 	}
 
-	if model.AdminLoginCaptchaCheck(admin) {
+	s := admin.CheckLocked()
+	if s != 0 {
+		data["locked"] = true
+		data["unlock_ttl"] = s
+		app.Output(data).DisplayJSON(ctx, app.StatusOK)
+		return
+	}
+
+	data["pubkey"] = admin.PasswordCreateEncryptRSA()
+
+	if admin.CaptchaLoginCheck() {
+		img, token := admin.CaptchaLaod()
 		data["captcha_is_open"] = true
-		// 解析配置
-		conf := base64Captcha.ConfigCharacter{}
-		model.GetConfigField("admin", "login_captcha_config").BindJSON(&conf)
-		// 构建验证码数据
-		cimg := base64Captcha.EngineCharCreate(conf)
-		verifyCode, err := json.Marshal([]interface{}{
-			[]byte(cimg.VerifyValue),
-			time.Now().Add(180 * time.Second).Unix(),
-		})
-		if err != nil {
-			panic(fmt.Sprintf("Error: create captcha fail-1 %v", err))
-		}
-		// 加密数据
-		token, err := rsa.EncryptPKCS1v15(rand.Reader, admin.PubKey, verifyCode)
-		if err != nil {
-			panic(fmt.Sprintf("Error: create captcha fail-2 %v", err))
-		}
-		data["captcha"] = gin.H{
-			"image": base64Captcha.CaptchaWriteToBase64Encoding(cimg),
-			"token": token,
-		}
+		data["captcha"] = gin.H{"image": *img, "token": token}
 	}
 
 	app.Output(data).DisplayJSON(ctx, app.StatusOK)
