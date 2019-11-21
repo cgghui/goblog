@@ -42,8 +42,7 @@ func (a *Auth) check(ctx *gin.Context) {
 		"captcha":         gin.H{},
 	}
 
-	s := admin.CheckLocked()
-	if s != 0 {
+	if s := admin.CheckLocked(); s != 0 {
 		data["locked"] = true
 		data["unlock_ttl"] = s
 		app.Output(data).DisplayJSON(ctx, app.StatusOK)
