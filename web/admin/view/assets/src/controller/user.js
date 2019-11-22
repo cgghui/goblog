@@ -42,9 +42,21 @@ layui.define('form', function(exports){
 
   
   //更换图形验证码
-  $body.on('click', '#LAY-user-get-vercode', function(){
-    var othis = $(this);
-    this.src = 'https://www.oschina.net/action/user/captcha?t='+ new Date().getTime()
+  $body.on('click', '#LAY-user-get-vercode', function() {
+    var username = $('#LAY-user-login-username').val()
+    if (!username) {
+      return
+    }
+    var token = $('#captcha-token').val()
+    if (!token) {
+      return
+    }
+    admin.req({
+      url: setter.apiurl + 'auth/load_captcha?username=' + username + '&token=' + token + '&t='+ new Date().getTime(),
+      done: function (resp) {
+        $('#LAY-user-get-vercode').attr('src',resp.data.image);
+      }
+    })
   });
   
   //对外暴露的接口

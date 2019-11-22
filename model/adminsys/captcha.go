@@ -19,7 +19,7 @@ func (a *Admins) CaptchaLoginCheck() bool {
 }
 
 // CaptchaLaod 加载验证码 return1: 验证码图片 return2: 验证码令牌
-func (a *Admins) CaptchaLaod() (*string, string) {
+func (a *Admins) CaptchaLaod(keyids ...string) (*string, string) {
 
 	conf := base64Captcha.ConfigCharacter{}
 	config.GetConfigField("admin", "login_captcha_config").BindStruct(&conf)
@@ -32,21 +32,42 @@ func (a *Admins) CaptchaLaod() (*string, string) {
 	if err != nil {
 		panic(err)
 	}
-
-	md5ctx := md5.New()
-	md5ctx.Write(verifyCode)
-	keyid := md5ctx.Sum(nil)
-	if err := app.RedisConn.HSet(a.tempkey(), hex.EncodeToString(keyid), verifyCode).Err(); err != nil {
-		panic(err)
+	// 生成验证码
+	if len(keyids) == 0 {
+		md5ctx := md5.New()
+		md5ctx.Write(verifyCode)
+		keyid := md5ctx.Sum(nil)
+		if err := app.RedisConn.HSet(a.tempkey(), hex.EncodeToString(keyid), verifyCode).Err(); err != nil {
+			panic(err)
+		}
+		// 加密数据
+		token, err := rsa.EncryptPKCS1v15(rand.Reader, a.PubKey, keyid)
+		if err != nil {
+			panic(err)
+		}
+		img := base64Captcha.CaptchaWriteToBase64Encoding(cimg)
+		return &img, hex.EncodeToString(token)
 	}
-
-	// 加密数据
-	token, err := rsa.EncryptPKCS1v15(rand.Reader, a.PubKey, keyid)
-	if err != nil {
+	// 刷新验证码
+	if err := app.RedisConn.HSet(a.tempkey(), keyids[0], verifyCode).Err(); err != nil {
 		panic(err)
 	}
 	img := base64Captcha.CaptchaWriteToBase64Encoding(cimg)
-	return &img, hex.EncodeToString(token)
+	return &img, ""
+}
+
+// CaptchaTokenCheck token检测
+func (a *Admins) CaptchaTokenCheck(token *string) bool {
+	tk, err := hex.DecodeString(*token)
+	if err != nil {
+		return false
+	}
+	tk, err = rsa.DecryptPKCS1v15(rand.Reader, a.PriKey, tk)
+	if err != nil {
+		return false
+	}
+	*token = string(tk)
+	return app.RedisConn.HExists(a.tempkey(), hex.EncodeToString(tk)).Val()
 }
 
 // CaptchaVerify 验证验证码

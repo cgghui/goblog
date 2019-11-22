@@ -36,6 +36,8 @@
         <a lay-href="/user/forget" class="layadmin-user-jump-change layadmin-link" style="margin-top: 7px;">忘记密码？</a>
       </div>
       <div class="layui-form-item">
+        <input type="hidden" name="captcha_token" id="captcha-token" />
+        <input type="hidden" name="pubkey" id="rsa-pubkey" />
         <button class="layui-btn layui-btn-fluid" lay-submit lay-filter="LAY-user-login-submit">登 入</button>
       </div>
     </div>
@@ -63,6 +65,8 @@ layui.use(['admin', 'form', 'user'], function() {
       done: function (resp) {
         var data = resp.data
         if (data.captcha_is_open) {
+          $('#rsa-pubkey').val(data.pubkey);
+          $('#captcha-token').val(data.captcha.token);
           $('#LAY-user-get-vercode').attr('src', data.captcha.image);
         }
       }

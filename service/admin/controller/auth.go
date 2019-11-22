@@ -14,6 +14,7 @@ type Auth struct {
 //Construct 构造方法
 func (a *Auth) Construct(app *app.App) {
 	app.GET("/auth/check", a.check)
+	app.GET("/auth/load_captcha", a.loadCaptcha)
 }
 
 func (a *Auth) check(ctx *gin.Context) {
@@ -58,4 +59,37 @@ func (a *Auth) check(ctx *gin.Context) {
 	}
 
 	app.Output(data).DisplayJSON(ctx, app.StatusOK)
+}
+
+func (a *Auth) loadCaptcha(ctx *gin.Context) {
+
+	username := ctx.Query("username")
+	if len(username) == 0 {
+		app.Output(gin.H{"tip": "请传入账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
+
+	admin := &adminsys.Admins{}
+	app.DBConn.Where("username = ?", username).First(admin)
+
+	if !admin.Has() {
+		app.Output(gin.H{"tip": "无效账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
+
+	admin.BuildKeyToRSA()
+
+	token := ctx.Query("token")
+	if len(token) == 0 {
+		app.Output(gin.H{"tip": "请传入令牌"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
+
+	if !admin.CaptchaTokenCheck(&token) {
+		app.Output(gin.H{"tip": "传入令牌的无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
+
+	img, _ := admin.CaptchaLaod(token)
+	app.Output(gin.H{"image": *img}).DisplayJSON(ctx, app.StatusOK)
 }
