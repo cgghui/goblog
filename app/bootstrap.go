@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,7 @@ func New(rcs []RouteBuilder) {
 	// middleware
 	middlewareLog(app.Engine)
 	middlewareRecovery(app.Engine)
+	middlewareCORS(app.Engine)
 	middlewareSession(app.Engine)
 
 	//
@@ -128,6 +130,18 @@ func middlewareRecovery(router *gin.Engine) {
 	router.Use(gin.Recovery())
 
 	return
+}
+
+// 跨域中间件
+func middlewareCORS(router *gin.Engine) {
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://127.0.0.1:8787"},
+		AllowMethods:     []string{"GET", "POST", "OPTIONS", "DELETE", "PUT"},
+		AllowHeaders:     []string{"Origin", "AccessToken"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           24 * time.Hour,
+	}))
 }
 
 // session中间件

@@ -12,7 +12,7 @@
     <div class="layadmin-user-login-box layadmin-user-login-body layui-form">
       <div class="layui-form-item">
         <label class="layadmin-user-login-icon layui-icon layui-icon-username" for="LAY-user-login-username"></label>
-        <input type="text" name="username" id="LAY-user-login-username" lay-verify="required" placeholder="用户名" class="layui-input">
+        <input type="text" name="username" id="LAY-user-login-username" lay-verify="username" placeholder="用户名" class="layui-input">
       </div>
       <div class="layui-form-item">
         <label class="layadmin-user-login-icon layui-icon layui-icon-password" for="LAY-user-login-password"></label>
@@ -38,14 +38,6 @@
       <div class="layui-form-item">
         <button class="layui-btn layui-btn-fluid" lay-submit lay-filter="LAY-user-login-submit">登 入</button>
       </div>
-      <!-- <div class="layui-trans layui-form-item layadmin-user-login-other">
-        <label>社交账号登入</label>
-        <a href="javascript:;"><i class="layui-icon layui-icon-login-qq"></i></a>
-        <a href="javascript:;"><i class="layui-icon layui-icon-login-wechat"></i></a>
-        <a href="javascript:;"><i class="layui-icon layui-icon-login-weibo"></i></a>
-        
-        <a lay-href="/user/reg" class="layadmin-user-jump-change layadmin-link">注册帐号</a>
-      </div> -->
     </div>
   </div>
   <div class="layui-trans layadmin-user-login-footer">
@@ -64,6 +56,18 @@ layui.use(['admin', 'form', 'user'], function() {
   ,search = router.search;
 
   form.render();
+
+  $('#LAY-user-login-username').on('blur', function () {
+    admin.req({
+      url: setter.apiurl + 'auth/check?username=' + $(this).val(),
+      done: function (resp) {
+        var data = resp.data
+        if (data.captcha_is_open) {
+          $('#LAY-user-get-vercode').attr('src', data.captcha.image);
+        }
+      }
+    })
+  })
 
   //提交
   form.on('submit(LAY-user-login-submit)', function(obj) {
