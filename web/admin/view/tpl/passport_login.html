@@ -18,7 +18,7 @@
         <label class="layadmin-user-login-icon layui-icon layui-icon-password" for="LAY-user-login-password"></label>
         <input type="password" name="password" id="LAY-user-login-password" lay-verify="required" placeholder="密码" class="layui-input">
       </div>
-      <div class="layui-form-item">
+      <div class="layui-form-item" id="captcha-switch" style="display:none;">
         <div class="layui-row">
           <div class="layui-col-xs7">
             <label class="layadmin-user-login-icon layui-icon layui-icon-vercode" for="LAY-user-login-vercode"></label>
@@ -65,6 +65,7 @@ layui.use(['admin', 'form', 'user'], function() {
       done: function (resp) {
         var data = resp.data
         if (data.captcha_is_open) {
+          $('#captcha-switch').show();
           $('#rsa-pubkey').val(data.pubkey);
           $('#captcha-token').val(data.captcha.token);
           $('#LAY-user-get-vercode').attr('src', data.captcha.image);
