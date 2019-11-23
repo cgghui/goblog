@@ -13,11 +13,12 @@ type Auth struct {
 
 //Construct 构造方法
 func (a *Auth) Construct(app *app.App) {
-	app.GET("/auth/check", a.check)
-	app.GET("/auth/load_captcha", a.loadCaptcha)
+	app.GET("/auth/check", check)
+	app.GET("/auth/load_captcha", loadCaptcha)
+	app.POST("/auth/passport", passport)
 }
 
-func (a *Auth) check(ctx *gin.Context) {
+func check(ctx *gin.Context) {
 
 	username := ctx.Query("username")
 	if len(username) == 0 {
@@ -36,8 +37,8 @@ func (a *Auth) check(ctx *gin.Context) {
 	admin.BuildKeyToRSA()
 
 	data := gin.H{
-		"locked":          true,
-		"unlock_ttl":      86400,
+		"locked":          false,
+		"unlock_ttl":      0,
 		"pubkey":          "",
 		"captcha_is_open": false,
 		"captcha":         gin.H{},
@@ -61,7 +62,7 @@ func (a *Auth) check(ctx *gin.Context) {
 	app.Output(data).DisplayJSON(ctx, app.StatusOK)
 }
 
-func (a *Auth) loadCaptcha(ctx *gin.Context) {
+func loadCaptcha(ctx *gin.Context) {
 
 	username := ctx.Query("username")
 	if len(username) == 0 {
@@ -92,4 +93,8 @@ func (a *Auth) loadCaptcha(ctx *gin.Context) {
 
 	img, _ := admin.CaptchaLaod(token)
 	app.Output(gin.H{"image": *img}).DisplayJSON(ctx, app.StatusOK)
+}
+
+func passport(ctx *gin.Context) {
+
 }
