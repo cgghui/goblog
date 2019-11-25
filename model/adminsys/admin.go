@@ -128,6 +128,12 @@ func (a *Admins) BuildKeyToRSA() {
 	}
 }
 
+// ClearTemp 清除临时数据
+func (a *Admins) ClearTemp() {
+	app.RedisConn.Del(a.tempkey())
+	return
+}
+
 func (a *Admins) tempkey() string {
 	return "AdminTemp_" + a.Username
 }

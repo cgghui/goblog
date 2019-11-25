@@ -76,7 +76,9 @@ layui.define(['admin', 'form', 'jscrypt'], function(exports){
     obj.field.password = jscrypt.encrypt(obj.field.password);
 
     $.post(setter.apiurl + 'auth/passport', obj.field).done(function (resp) {
-      console.log(resp);
+      if (resp.code == 11003) {
+        $('#LAY-user-get-vercode').attr('src', resp.data.new_captcha_image);
+      }
     });
 
     // admin.req({

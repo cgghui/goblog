@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"goblog/app"
 	"goblog/model/config"
+	"strings"
 	"time"
 
 	"github.com/mojocn/base64Captcha"
@@ -66,14 +67,24 @@ func (a *Admins) CaptchaTokenCheck(token *string) bool {
 	if err != nil {
 		return false
 	}
-	*token = string(tk)
-	return app.RedisConn.HExists(a.tempkey(), hex.EncodeToString(tk)).Val()
+	*token = hex.EncodeToString(tk)
+	return app.RedisConn.HExists(a.tempkey(), *token).Val()
 }
 
 // CaptchaVerify 验证验证码
 func (a *Admins) CaptchaVerify(code string, keyid string) (bool, error) {
 
-	val, err := app.RedisConn.HGet(a.tempkey(), keyid).Result()
+	token, err := hex.DecodeString(keyid)
+	if err != nil {
+		return false, err
+	}
+
+	token, err = rsa.DecryptPKCS1v15(rand.Reader, a.PriKey, token)
+	if err != nil {
+		return false, err
+	}
+
+	val, err := app.RedisConn.HGet(a.tempkey(), hex.EncodeToString(token)).Result()
 	if err != nil {
 		return false, err
 	}
@@ -89,7 +100,7 @@ func (a *Admins) CaptchaVerify(code string, keyid string) (bool, error) {
 		return false, nil
 	}
 
-	return code == ret[0].(string), nil
+	return strings.ToUpper(code) == strings.ToUpper(ret[0].(string)), nil
 }
 
 // CaptchaDestroy 销毁验证码

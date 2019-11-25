@@ -9,6 +9,9 @@ const (
 
 	StatusQueryInvalid = 11000
 	StatusUserNotExist = 11001
+	StatusUserLocked   = 11002
+	StatusCaptchaError = 12000
+	StatusPasswordErr  = 11003
 )
 
 var statusRet = map[int]bool{
@@ -17,6 +20,9 @@ var statusRet = map[int]bool{
 	StatusNotFound:     false,
 	StatusQueryInvalid: false,
 	StatusUserNotExist: false,
+	StatusUserLocked:   false,
+	StatusCaptchaError: false,
+	StatusPasswordErr:  false,
 }
 
 var statusMsg = map[int]string{
@@ -25,6 +31,9 @@ var statusMsg = map[int]string{
 	StatusNotFound:     "not found",
 	StatusQueryInvalid: "无效参数",
 	StatusUserNotExist: "账号不存在",
+	StatusUserLocked:   "账号被锁定",
+	StatusCaptchaError: "验证码错误",
+	StatusPasswordErr:  "密码错误",
 }
 
 // StatusRet 返回相关结果

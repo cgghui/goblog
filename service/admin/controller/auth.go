@@ -97,4 +97,64 @@ func loadCaptcha(ctx *gin.Context) {
 
 func passport(ctx *gin.Context) {
 
+	var form adminsys.FormAdminLogin
+
+	if ctx.ShouldBind(&form) != nil {
+		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
+
+	admin := form.GetAdmin()
+
+	if !admin.Has() {
+		app.Output(gin.H{"username": form.Username}).DisplayJSON(ctx, app.StatusUserNotExist)
+		return
+	}
+
+	admin.BuildKeyToRSA()
+
+	if s := admin.CheckLocked(); s != 0 {
+		app.Output(gin.H{"locked": true, "unlock_ttl": s}).DisplayJSON(ctx, app.StatusUserLocked)
+		return
+	}
+
+	isOpenCaptcha := admin.CaptchaLoginCheck()
+
+	if isOpenCaptcha {
+		if !form.CheckCaptchaQuantity() {
+			admin.CounterIncr(adminsys.CounterCaptcha)
+			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -1}).DisplayJSON(ctx, app.StatusCaptchaError)
+			return
+		}
+		ok, err := admin.CaptchaVerify(form.CaptchaCode, form.CaptchaToken)
+		if err != nil {
+			ctx.Error(err)
+		}
+		if !ok {
+			admin.CounterIncr(adminsys.CounterCaptcha)
+			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -2}).DisplayJSON(ctx, app.StatusCaptchaError)
+			return
+		}
+	}
+
+	ok, err := admin.PasswordVerify(form.Password)
+	if err != nil {
+		ctx.Error(err)
+	}
+	if !ok {
+		admin.CounterIncr(adminsys.CounterPassword)
+		output := app.Output()
+		if isOpenCaptcha && admin.CaptchaTokenCheck(&form.CaptchaToken) {
+			img, _ := admin.CaptchaLaod(form.CaptchaToken)
+			output.Assgin("new_captcha_image", *img)
+		} else {
+			output.Assgin("new_captcha_image", "")
+		}
+		output.DisplayJSON(ctx, app.StatusPasswordErr)
+		return
+	}
+
+	admin.CounterClear()
+	admin.ClearTemp()
+	app.Output(gin.H{"access_token": ""}).DisplayJSON(ctx, app.StatusOK)
 }

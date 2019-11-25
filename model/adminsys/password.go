@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"goblog/app"
 	"time"
@@ -36,7 +37,11 @@ func (a *Admins) PasswordVerify(password string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	pwd, err := rsa.DecryptPKCS1v15(rand.Reader, PriKey, []byte(password))
+	temp, err := base64.StdEncoding.DecodeString(password)
+	if err != nil {
+		return false, err
+	}
+	pwd, err := rsa.DecryptPKCS1v15(rand.Reader, PriKey, temp)
 	if err != nil {
 		return false, err
 	}
