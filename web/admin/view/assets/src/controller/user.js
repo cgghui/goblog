@@ -77,7 +77,10 @@ layui.define(['admin', 'form', 'jscrypt'], function(exports){
 
     $.post(setter.apiurl + 'auth/passport', obj.field).done(function (resp) {
       if (resp.code == 11003) {
-        $('#LAY-user-get-vercode').attr('src', resp.data.new_captcha_image);
+        if (resp.data.captcha_open) {
+          $('#captcha-token').val(resp.data.captcha_token);
+          $('#LAY-user-get-vercode').attr('src', resp.data.captcha_image);
+        }
       }
     });
 

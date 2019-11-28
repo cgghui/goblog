@@ -18,17 +18,24 @@ func (a *Auth) Construct(app *app.App) {
 	app.POST("/auth/passport", passport)
 }
 
+// 登录前检测账号的状态
+// 最好是在账号输入框失去焦点时 调用接口进行检测
+// URL auth/check?username=val
+// Method GET
 func check(ctx *gin.Context) {
 
+	// 检测输入的账号
 	username := ctx.Query("username")
 	if len(username) == 0 {
 		app.Output(gin.H{"tip": "请输入账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 		return
 	}
 
+	// 从数据库取账号信息
 	admin := &adminsys.Admins{}
 	app.DBConn.Where("username = ?", username).First(admin)
 
+	// 如果账号不存在
 	if !admin.Has() {
 		app.Output(gin.H{"username": username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
@@ -36,6 +43,7 @@ func check(ctx *gin.Context) {
 
 	admin.BuildKeyToRSA()
 
+	// 输出至浏览器的数据
 	data := gin.H{
 		"locked":          false,
 		"unlock_ttl":      0,
@@ -44,6 +52,7 @@ func check(ctx *gin.Context) {
 		"captcha":         gin.H{},
 	}
 
+	// 如果账号被锁定
 	if s := admin.CheckLocked(); s != 0 {
 		data["locked"] = true
 		data["unlock_ttl"] = s
@@ -51,8 +60,10 @@ func check(ctx *gin.Context) {
 		return
 	}
 
+	// 取加密密码明文的RSA公钥
 	data["pubkey"] = admin.PasswordCreateEncryptRSA()
 
+	// 如果须要验证码
 	if admin.CaptchaLoginCheck() {
 		img, token := admin.CaptchaLaod()
 		data["captcha_is_open"] = true
@@ -62,6 +73,9 @@ func check(ctx *gin.Context) {
 	app.Output(data).DisplayJSON(ctx, app.StatusOK)
 }
 
+// 登录时重新加载验证码 如果用户看清 可调用该接口刷新验证码
+// URL auth/loadCaptcha?username=val&token=
+// Method GET
 func loadCaptcha(ctx *gin.Context) {
 
 	username := ctx.Query("username")
@@ -144,11 +158,18 @@ func passport(ctx *gin.Context) {
 	if !ok {
 		admin.CounterIncr(adminsys.CounterPassword)
 		output := app.Output()
-		if isOpenCaptcha && admin.CaptchaTokenCheck(&form.CaptchaToken) {
-			img, _ := admin.CaptchaLaod(form.CaptchaToken)
-			output.Assgin("new_captcha_image", *img)
-		} else {
-			output.Assgin("new_captcha_image", "")
+		output.Assgin("captcha_open", isOpenCaptcha)
+		if isOpenCaptcha {
+			token := form.CaptchaToken
+			var img *string
+			if admin.CaptchaTokenCheck(&token) {
+				img, _ = admin.CaptchaLaod(form.CaptchaToken)
+				token = form.CaptchaToken
+			} else {
+				img, token = admin.CaptchaLaod()
+			}
+			output.Assgin("captcha_token", token)
+			output.Assgin("captcha_image", *img)
 		}
 		output.DisplayJSON(ctx, app.StatusPasswordErr)
 		return
