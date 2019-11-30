@@ -12,9 +12,8 @@ type CounterField string
 
 // 管理员登录时的错误记录字段
 var (
-	CounterPassword       CounterField = "password"
-	CounterCaptcha        CounterField = "captcha"
-	CounterGoogleAuthCode CounterField = "google_authcode"
+	CounterPassword CounterField = "password"
+	CounterCaptcha  CounterField = "captcha"
 )
 
 // CounterCheck 检查n是否大于field所记录的数，大于则返回true 否则返回false

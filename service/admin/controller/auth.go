@@ -3,6 +3,7 @@ package controller
 import (
 	"goblog/app"
 	"goblog/model/adminsys"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -127,7 +128,22 @@ func passport(ctx *gin.Context) {
 
 	admin.BuildKeyToRSA()
 
+	nowtime := time.Now()
+
+	logtext := &adminsys.AdminsLog{
+		LoginUID:      admin.ID,
+		LoginUsername: admin.Username,
+		IP:            ctx.ClientIP(),
+		Action:        "LOGIN",
+		Msg:           "登录失败",
+		VisitDatetime: nowtime,
+	}
+	defer func() {
+		go app.DBConn.Create(logtext)
+	}()
+
 	if s := admin.CheckLocked(); s != 0 {
+		logtext.Msg = "登录失败: 账号被锁定"
 		app.Output(gin.H{"locked": true, "unlock_ttl": s}).DisplayJSON(ctx, app.StatusUserLocked)
 		return
 	}
@@ -137,6 +153,7 @@ func passport(ctx *gin.Context) {
 	if isOpenCaptcha {
 		if !form.CheckCaptchaQuantity() {
 			admin.CounterIncr(adminsys.CounterCaptcha)
+			logtext.Msg = "登录失败: 验证码错误(-1)"
 			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -1}).DisplayJSON(ctx, app.StatusCaptchaError)
 			return
 		}
@@ -146,6 +163,7 @@ func passport(ctx *gin.Context) {
 		}
 		if !ok {
 			admin.CounterIncr(adminsys.CounterCaptcha)
+			logtext.Msg = "登录失败: 验证码错误(-2)"
 			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -2}).DisplayJSON(ctx, app.StatusCaptchaError)
 			return
 		}
@@ -163,7 +181,7 @@ func passport(ctx *gin.Context) {
 			token := form.CaptchaToken
 			var img *string
 			if admin.CaptchaTokenCheck(&token) {
-				img, _ = admin.CaptchaLaod(form.CaptchaToken)
+				img, _ = admin.CaptchaLaod(token)
 				token = form.CaptchaToken
 			} else {
 				img, token = admin.CaptchaLaod()
@@ -171,11 +189,14 @@ func passport(ctx *gin.Context) {
 			output.Assgin("captcha_token", token)
 			output.Assgin("captcha_image", *img)
 		}
+		logtext.Msg = "登录失败: 密码错误"
 		output.DisplayJSON(ctx, app.StatusPasswordErr)
 		return
 	}
 
 	admin.CounterClear()
 	admin.ClearTemp()
+
+	logtext.Msg = "登录成功"
 	app.Output(gin.H{"access_token": ""}).DisplayJSON(ctx, app.StatusOK)
 }

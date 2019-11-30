@@ -80,7 +80,7 @@ CREATE TABLE `gb_configs`  (
 -- Records of gb_configs
 -- ----------------------------
 INSERT INTO `gb_configs` VALUES (1, 'admin', 'login_captcha', 'string', 'condition');
-INSERT INTO `gb_configs` VALUES (2, 'admin', 'login_captcha_condition', 'json', '{\"pwd_errn\": 1, \"captcha_errn\": 1, \"google_authcode_errn\": 1}');
+INSERT INTO `gb_configs` VALUES (2, 'admin', 'login_captcha_condition', 'json', '{\"pwd_errn\": 1, \"captcha_errn\": 1}');
 INSERT INTO `gb_configs` VALUES (3, 'admin', 'login_captcha_config', 'json', ' {\r\n	\"Height\": 60,\r\n	\"Width\": 240,\r\n	\"Mode\": 1,\r\n	\"ComplexOfNoiseText\": 0,\r\n	\"ComplexOfNoiseDot\": 0,\r\n	\"IsUseSimpleFont\": true,\r\n	\"IsShowHollowLine\": false,\r\n	\"IsShowNoiseDot\": false,\r\n	\"IsShowNoiseText\": false,\r\n	\"IsShowSlimeLine\": false,\r\n	\"IsShowSineLine\": false,\r\n	\"CaptchaLen\": 6,\r\n	\"BgColor\": {\r\n		\"R\": 0,\r\n		\"G\": 0,\r\n		\"B\": 0,\r\n		\"A\": 1\r\n	}\r\n}');
 INSERT INTO `gb_configs` VALUES (4, 'admin', 'login_malice_prevent', 'json', '{\"pwd_errn\": 3, \"lock_time\": 3600}');
 INSERT INTO `gb_configs` VALUES (5, 'admin', 'login_counter_expire', 'time', '10800');

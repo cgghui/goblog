@@ -20,19 +20,6 @@ type Configs struct {
 	Value     string `gorm:"type:varchar(512)"`
 }
 
-// AdminLCC 管理员登录时启用验证码的条件 Admin Login Captcha Condition
-type AdminLCC struct {
-	Password       int `json:"pwd_errn"`
-	Captcha        int `json:"captcha_errn"`
-	GoogleAuthCode int `json:"google_authcode_errn"`
-}
-
-// AdminLMP 管理员登录 防止恶意尝试错误密码 Admin Login Malice Prevent
-type AdminLMP struct {
-	Password int   `json:"pwd_errn"`
-	LockTime int64 `json:"lock_time"`
-}
-
 func init() {
 	cfgs := []Configs{}
 	app.DBConn.Find(&cfgs)
