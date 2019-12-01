@@ -36,12 +36,6 @@ type AdminsLog struct {
 	VisitDatetime time.Time `gorm:"type:datetime"`
 }
 
-// LoginMalicePrevent 管理员登录 密码错误次数限制（防止恶意尝试错误的密码）cinfig: login_malice_prevent
-type LoginMalicePrevent struct {
-	Password int   `json:"pwd_errn"`
-	LockTime int64 `json:"lock_time"`
-}
-
 // AdminLoginCaptchaCheck return true open, false close
 // 检查登录时是否须要使用验证码
 func AdminLoginCaptchaCheck(admin ...*Admins) bool {
@@ -71,13 +65,7 @@ func (a *Admins) Has() bool {
 
 // CheckLocked 是否账户是否被锁定 如果锁定返回大于0的数 未锁定返回0
 func (a *Admins) CheckLocked() int {
-	ret := LoginMalicePrevent{}
-	config.GetConfigField("admin", "login_malice_prevent").BindStruct(&ret)
-	n, t := a.CounterGet(CounterPassword)
-	if n < ret.Password || t == nil {
-		return 0
-	}
-	return int(t.Add(time.Duration(ret.LockTime) * time.Second).Sub(time.Now()).Seconds())
+	return NewLoginMalicePrevent(a).CheckLocked()
 }
 
 // BuildKeyToRSA 创建RSA密钥 永久性使用

@@ -13,6 +13,7 @@ type LoginCaptchaCondition struct {
 func NewLoginCaptchaCondition(admin *Admins) *LoginCaptchaCondition {
 	ret := LoginCaptchaCondition{}
 	config.GetConfigField("admin", "login_captcha_condition").BindStruct(&ret)
+	ret.admin = admin
 	return &ret
 }
 
