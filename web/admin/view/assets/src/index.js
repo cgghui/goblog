@@ -150,9 +150,7 @@ layui.extend({
     //将模块根路径设置为 controller 目录
     layui.config({
       base: setter.base + 'controller/'
-    }).extend({
-      jscrypt: '../lib/jsencrypt',
-  });
+    }).extend({});
     
     //独立页面
     if(isIndPage || pathURL === '/passport/login'){ //此处单独判断登入页，是为了兼容旧版（即未在 config.js 配置 indPage 的情况）

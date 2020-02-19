@@ -7,7 +7,7 @@ const (
 	StatusForbidden = 10000 // http status 403 表示请求遭到系统拒绝
 	StatusNotFound  = 10001 // http status 404 表示请求的资源不存在
 
-	StatusQueryInvalid = 11000
+	StatusQueryInvalid = 11000 // 传入的参数无效
 	StatusUserNotExist = 11001
 	StatusUserLocked   = 11002
 	StatusCaptchaError = 12000

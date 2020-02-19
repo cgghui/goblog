@@ -1,10 +1,10 @@
 
-layui.define(['admin', 'form', 'jscrypt'], function(exports){
+layui.define(['admin', 'form', 'jsencrypt'], function(exports){
   var $ = layui.$
   ,setter = layui.setter
   ,admin = layui.admin
   ,form = layui.form
-  ,jscrypt = layui.jscrypt
+  ,jscrypt = layui.jsencrypt
   ,router = layui.router()
   ,search = router.search;
 
