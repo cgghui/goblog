@@ -2,7 +2,7 @@ package controller
 
 import (
 	"goblog/app"
-	"goblog/model/adminsys"
+	"goblog/model/admin"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,13 +33,13 @@ func check(ctx *gin.Context) {
 	}
 
 	// 从数据库取账号信息
-	admin := adminsys.GetAdminByUsernme(username)
-	if !admin.Has() {
+	adminuser := admin.GetAdminByUsernme(username)
+	if !adminuser.Has() {
 		app.Output(gin.H{"username": username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
 	}
 
-	admin.BuildKeyToRSA()
+	adminuser.BuildKeyToRSA()
 
 	// 输出至浏览器的数据
 	data := gin.H{
@@ -51,7 +51,7 @@ func check(ctx *gin.Context) {
 	}
 
 	// 如果账号被锁定
-	if s := admin.CheckLocked(); s != 0 {
+	if s := adminuser.CheckLocked(); s != 0 {
 		data["locked"] = true
 		data["unlock_ttl"] = s
 		app.Output(data).DisplayJSON(ctx, app.StatusOK)
@@ -59,11 +59,11 @@ func check(ctx *gin.Context) {
 	}
 
 	// 取加密密码明文的RSA公钥
-	data["pubkey"] = admin.PasswordCreateEncryptRSA()
+	data["pubkey"] = adminuser.PasswordCreateEncryptRSA()
 
 	// 如果须要验证码
-	if admin.CaptchaLoginCheck() {
-		img, token := admin.CaptchaLaod()
+	if adminuser.CaptchaLoginCheck() {
+		img, token := adminuser.CaptchaLaod()
 		data["captcha_is_open"] = true
 		data["captcha"] = gin.H{"image": *img, "token": token}
 	}
@@ -82,7 +82,7 @@ func loadCaptcha(ctx *gin.Context) {
 		return
 	}
 
-	admin := adminsys.GetAdminByUsernme(username)
+	admin := admin.GetAdminByUsernme(username)
 
 	if !admin.Has() {
 		app.Output(gin.H{"tip": "无效账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
@@ -108,7 +108,7 @@ func loadCaptcha(ctx *gin.Context) {
 
 func passport(ctx *gin.Context) {
 
-	var form adminsys.FormAdminLogin
+	var form admin.FormAdminLogin
 
 	if err := ctx.ShouldBind(&form); err != nil {
 		ctx.Error(err)
@@ -116,20 +116,20 @@ func passport(ctx *gin.Context) {
 		return
 	}
 
-	admin := form.GetAdmin()
+	adminuser := form.GetAdmin()
 
-	if !admin.Has() {
+	if !adminuser.Has() {
 		app.Output(gin.H{"username": form.Username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
 	}
 
-	admin.BuildKeyToRSA()
+	adminuser.BuildKeyToRSA()
 
 	nowtime := time.Now()
 
-	logtext := &adminsys.AdminsLog{
-		LoginUID:      admin.ID,
-		LoginUsername: admin.Username,
+	logtext := &admin.AdminsLog{
+		LoginUID:      adminuser.ID,
+		LoginUsername: adminuser.Username,
 		IP:            ctx.ClientIP(),
 		Action:        "LOGIN",
 		Msg:           "登录失败",
@@ -139,49 +139,49 @@ func passport(ctx *gin.Context) {
 		go app.DBConn.Create(logtext)
 	}()
 
-	if s := admin.CheckLocked(); s != 0 {
+	if s := adminuser.CheckLocked(); s != 0 {
 		logtext.Msg = "登录失败: 账号被锁定"
 		app.Output(gin.H{"locked": true, "unlock_ttl": s}).DisplayJSON(ctx, app.StatusUserLocked)
 		return
 	}
 
-	isOpenCaptcha := admin.CaptchaLoginCheck()
+	isOpenCaptcha := adminuser.CaptchaLoginCheck()
 
 	if isOpenCaptcha {
 		if !form.CheckCaptchaQuantity() {
-			admin.CounterIncr(adminsys.CounterCaptcha)
+			adminuser.CounterIncr(admin.CounterCaptcha)
 			logtext.Msg = "登录失败: 验证码错误(-1)"
 			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -1}).DisplayJSON(ctx, app.StatusCaptchaError)
 			return
 		}
-		ok, err := admin.CaptchaVerify(form.CaptchaCode, form.CaptchaToken)
+		ok, err := adminuser.CaptchaVerify(form.CaptchaCode, form.CaptchaToken)
 		if err != nil {
 			ctx.Error(err)
 		}
 		if !ok {
-			admin.CounterIncr(adminsys.CounterCaptcha)
+			adminuser.CounterIncr(admin.CounterCaptcha)
 			logtext.Msg = "登录失败: 验证码错误(-2)"
 			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -2}).DisplayJSON(ctx, app.StatusCaptchaError)
 			return
 		}
 	}
 
-	ok, err := admin.PasswordVerify(form.Password)
+	ok, err := adminuser.PasswordVerify(form.Password)
 	if err != nil {
 		ctx.Error(err)
 	}
 	if !ok {
-		admin.CounterIncr(adminsys.CounterPassword)
+		adminuser.CounterIncr(admin.CounterPassword)
 		output := app.Output()
 		output.Assgin("captcha_open", isOpenCaptcha)
 		if isOpenCaptcha {
 			token := form.CaptchaToken
 			var img *string
-			if admin.CaptchaTokenCheck(&token) {
-				img, _ = admin.CaptchaLaod(token)
+			if adminuser.CaptchaTokenCheck(&token) {
+				img, _ = adminuser.CaptchaLaod(token)
 				token = form.CaptchaToken
 			} else {
-				img, token = admin.CaptchaLaod()
+				img, token = adminuser.CaptchaLaod()
 			}
 			output.Assgin("captcha_token", token)
 			output.Assgin("captcha_image", *img)
@@ -191,8 +191,8 @@ func passport(ctx *gin.Context) {
 		return
 	}
 
-	admin.CounterClear()
-	admin.ClearTemp()
+	adminuser.CounterClear()
+	adminuser.ClearTemp()
 
 	logtext.Msg = "登录成功"
 	app.Output(gin.H{"access_token": ""}).DisplayJSON(ctx, app.StatusOK)

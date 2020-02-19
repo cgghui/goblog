@@ -1,4 +1,4 @@
-package adminsys
+package admin
 
 import (
 	"bytes"
