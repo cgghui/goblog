@@ -1,7 +1,6 @@
 package adminsys
 
 import (
-	"goblog/app"
 	"goblog/model/config"
 
 	"github.com/mojocn/base64Captcha"
@@ -11,15 +10,13 @@ import (
 type FormAdminLogin struct {
 	Username     string `form:"username"`
 	Password     string `form:"password"`
-	CaptchaCode  string `form:"captcha_code"`
-	CaptchaToken string `form:"captcha_token"`
+	CaptchaCode  string `form:"captcha_c"`
+	CaptchaToken string `form:"captcha_t"`
 }
 
 // GetAdmin 登录账号
 func (f FormAdminLogin) GetAdmin() *Admins {
-	admin := &Admins{}
-	app.DBConn.Where("username = ?", f.Username).First(admin)
-	return admin
+	return GetAdminByUsernme(f.Username)
 }
 
 // CheckCaptchaQuantity 验证验证码数量是否一致

@@ -58,6 +58,13 @@ func AdminLoginCaptchaCheck(admin ...*Admins) bool {
 	return NewLoginCaptchaCondition(admin[0]).Check()
 }
 
+// GetAdminByUsernme 根据管理员姓名，取出该管理员对象
+func GetAdminByUsernme(username string) *Admins {
+	admin := &Admins{}
+	app.DBConn.Where("username = ?", username).First(admin)
+	return admin
+}
+
 // Has 管理员是否存在 如果返回true则存在 否则不存在
 func (a *Admins) Has() bool {
 	return a.ID != 0

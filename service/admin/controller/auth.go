@@ -33,10 +33,7 @@ func check(ctx *gin.Context) {
 	}
 
 	// 从数据库取账号信息
-	admin := &adminsys.Admins{}
-	app.DBConn.Where("username = ?", username).First(admin)
-
-	// 如果账号不存在
+	admin := adminsys.GetAdminByUsernme(username)
 	if !admin.Has() {
 		app.Output(gin.H{"username": username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
@@ -85,8 +82,7 @@ func loadCaptcha(ctx *gin.Context) {
 		return
 	}
 
-	admin := &adminsys.Admins{}
-	app.DBConn.Where("username = ?", username).First(admin)
+	admin := adminsys.GetAdminByUsernme(username)
 
 	if !admin.Has() {
 		app.Output(gin.H{"tip": "无效账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
@@ -114,7 +110,8 @@ func passport(ctx *gin.Context) {
 
 	var form adminsys.FormAdminLogin
 
-	if ctx.ShouldBind(&form) != nil {
+	if err := ctx.ShouldBind(&form); err != nil {
+		ctx.Error(err)
 		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 		return
 	}
