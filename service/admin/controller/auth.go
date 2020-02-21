@@ -62,7 +62,7 @@ func check(ctx *gin.Context) {
 	data["pubkey"] = admin.NewLoginPasswordCrypt(adminuser).GenerateKey()
 
 	// 如果须要验证码
-	if admin.NewLoginCaptchaCondition(lc).Check() {
+	if admin.NewLoginCaptchaCondition(lc).Check(adminuser) {
 		captcha := admin.NewLoginCaptcha(adminuser)
 		img, token := captcha.Generate()
 		data["captcha_is_open"] = true
@@ -148,7 +148,7 @@ func passport(ctx *gin.Context) {
 		return
 	}
 
-	if admin.NewLoginCaptchaCondition(lc).Check() {
+	if admin.NewLoginCaptchaCondition(lc).Check(adminuser) {
 		captcha = admin.NewLoginCaptcha(adminuser)
 		captchaOpend = true
 	}
@@ -188,7 +188,7 @@ func passport(ctx *gin.Context) {
 	if !ok {
 		lc.Incr(admin.LCP)
 		output := app.Output()
-		if admin.NewLoginCaptchaCondition(lc).Check() {
+		if admin.NewLoginCaptchaCondition(lc).Check(adminuser) {
 			captcha = admin.NewLoginCaptcha(adminuser)
 			captchaOpend = true
 		}

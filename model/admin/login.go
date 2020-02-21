@@ -25,22 +25,6 @@ func LoginCaptchaStatus() string {
 	return config.GetConfigField("admin", "login_captcha").String()
 }
 
-// LoginCaptchaMemberStatus 登录账号是否须要验证码
-// true 启用  false 关闭
-func LoginCaptchaMemberStatus(a *Admins) bool {
-	status := LoginCaptchaStatus()
-	if status == "on" {
-		return true
-	}
-	if status == "off" {
-		return false
-	}
-	if a.CaptchaIsOpen == "Y" {
-		return true
-	}
-	return NewLoginCaptchaCondition(NewLoginCounter(a.Username)).Check()
-}
-
 // < 登录密码校验 >
 // 客户端将密码传输至服务端，是明文的，采用本机制可以进行加密传输，加密方式是RSA
 // 实例NewLoginPasswordCrypt后，须要调用GenerateKey生成RSA密钥，并将返回的
@@ -230,7 +214,19 @@ func NewLoginCaptchaCondition(lc *LoginCounter) *LoginCaptchaCondition {
 }
 
 // Check PasswordMax 和 CaptchaMax 只要有一个为true 返回true
-func (l *LoginCaptchaCondition) Check() bool {
+func (l *LoginCaptchaCondition) Check(a ...*Admins) bool {
+	if len(a) != 0 {
+		status := LoginCaptchaStatus()
+		if status == "on" {
+			return true
+		}
+		if status == "off" {
+			return false
+		}
+		if a[0].CaptchaIsOpen == "Y" {
+			return true
+		}
+	}
 	return l.PasswordExceedMax() || l.CaptchaExceedMax()
 }
 
