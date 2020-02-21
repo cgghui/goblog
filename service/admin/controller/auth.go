@@ -33,13 +33,11 @@ func check(ctx *gin.Context) {
 	}
 
 	// 从数据库取账号信息
-	adminuser := admin.GetAdminByUsernme(username)
+	adminuser := admin.GetByUsername(username)
 	if !adminuser.Has() {
 		app.Output(gin.H{"username": username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
 	}
-
-	adminuser.BuildKeyToRSA()
 
 	// 输出至浏览器的数据
 	data := gin.H{
@@ -50,8 +48,10 @@ func check(ctx *gin.Context) {
 		"captcha":         gin.H{},
 	}
 
+	lc := admin.NewLoginCounter(username)
+
 	// 如果账号被锁定
-	if s := adminuser.CheckLocked(); s != 0 {
+	if s := admin.NewLoginMalicePrevent(lc).LockTTL(); s != 0 {
 		data["locked"] = true
 		data["unlock_ttl"] = s
 		app.Output(data).DisplayJSON(ctx, app.StatusOK)
@@ -59,11 +59,12 @@ func check(ctx *gin.Context) {
 	}
 
 	// 取加密密码明文的RSA公钥
-	data["pubkey"] = adminuser.PasswordCreateEncryptRSA()
+	data["pubkey"] = admin.NewLoginPasswordCrypt(adminuser).GenerateKey()
 
 	// 如果须要验证码
-	if adminuser.CaptchaLoginCheck() {
-		img, token := adminuser.CaptchaLaod()
+	if admin.NewLoginCaptchaCondition(lc).Check() {
+		captcha := admin.NewLoginCaptcha(adminuser)
+		img, token := captcha.Generate()
 		data["captcha_is_open"] = true
 		data["captcha"] = gin.H{"image": *img, "token": token}
 	}
@@ -82,14 +83,12 @@ func loadCaptcha(ctx *gin.Context) {
 		return
 	}
 
-	admin := admin.GetAdminByUsernme(username)
+	adminuser := admin.GetByUsername(username)
 
-	if !admin.Has() {
+	if !adminuser.Has() {
 		app.Output(gin.H{"tip": "无效账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 		return
 	}
-
-	admin.BuildKeyToRSA()
 
 	token := ctx.Query("token")
 	if len(token) == 0 {
@@ -97,18 +96,22 @@ func loadCaptcha(ctx *gin.Context) {
 		return
 	}
 
-	if !admin.CaptchaTokenCheck(&token) {
+	captcha := admin.NewLoginCaptcha(adminuser)
+
+	if !captcha.Token2KeyID(&token) {
 		app.Output(gin.H{"tip": "传入令牌的无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 		return
 	}
 
-	img, _ := admin.CaptchaLaod(token)
+	img, _ := captcha.Generate(token)
 	app.Output(gin.H{"image": *img}).DisplayJSON(ctx, app.StatusOK)
 }
 
 func passport(ctx *gin.Context) {
 
-	var form admin.FormAdminLogin
+	var form admin.FormLogin
+	var captcha *admin.LoginCaptcha
+	var captchaOpend bool
 
 	if err := ctx.ShouldBind(&form); err != nil {
 		ctx.Error(err)
@@ -122,8 +125,6 @@ func passport(ctx *gin.Context) {
 		app.Output(gin.H{"username": form.Username}).DisplayJSON(ctx, app.StatusUserNotExist)
 		return
 	}
-
-	adminuser.BuildKeyToRSA()
 
 	nowtime := time.Now()
 
@@ -139,49 +140,69 @@ func passport(ctx *gin.Context) {
 		go app.DBConn.Create(logtext)
 	}()
 
-	if s := adminuser.CheckLocked(); s != 0 {
+	lc := admin.NewLoginCounter(adminuser.Username)
+
+	if s := admin.NewLoginMalicePrevent(lc).LockTTL(); s != 0 {
 		logtext.Msg = "登录失败: 账号被锁定"
 		app.Output(gin.H{"locked": true, "unlock_ttl": s}).DisplayJSON(ctx, app.StatusUserLocked)
 		return
 	}
 
-	isOpenCaptcha := adminuser.CaptchaLoginCheck()
+	if admin.NewLoginCaptchaCondition(lc).Check() {
+		captcha = admin.NewLoginCaptcha(adminuser)
+		captchaOpend = true
+	}
 
-	if isOpenCaptcha {
+	if captchaOpend {
 		if !form.CheckCaptchaQuantity() {
-			adminuser.CounterIncr(admin.CounterCaptcha)
-			logtext.Msg = "登录失败: 验证码错误(-1)"
-			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -1}).DisplayJSON(ctx, app.StatusCaptchaError)
+			lc.Incr(admin.LCC)
+			logtext.Msg = "登录失败: 验证码无效(码数不一致)"
+			app.Output(gin.H{"captcha_code": form.CaptchaC, "ret": -1}).DisplayJSON(ctx, app.StatusCaptchaError)
 			return
 		}
-		ok, err := adminuser.CaptchaVerify(form.CaptchaCode, form.CaptchaToken)
+		keyid := form.CaptchaT
+		if !captcha.Token2KeyID(&keyid) {
+			lc.Incr(admin.LCC)
+			logtext.Msg = "登录失败: 验证码无效(令牌是无效)"
+			app.Output(gin.H{"captcha_code": form.CaptchaC, "ret": -2}).DisplayJSON(ctx, app.StatusCaptchaError)
+			return
+		}
+		ok, err := captcha.Verify(form.CaptchaC, keyid)
 		if err != nil {
 			ctx.Error(err)
 		}
 		if !ok {
-			adminuser.CounterIncr(admin.CounterCaptcha)
-			logtext.Msg = "登录失败: 验证码错误(-2)"
-			app.Output(gin.H{"captcha_code": form.CaptchaCode, "ret": -2}).DisplayJSON(ctx, app.StatusCaptchaError)
+			lc.Incr(admin.LCC)
+			logtext.Msg = "登录失败: 验证码错误"
+			app.Output(gin.H{"captcha_code": form.CaptchaC, "ret": -3}).DisplayJSON(ctx, app.StatusCaptchaError)
 			return
 		}
 	}
 
-	ok, err := adminuser.PasswordVerify(form.Password)
+	password := admin.NewLoginPasswordCrypt(adminuser)
+
+	ok, err := password.Verify(form.Password)
 	if err != nil {
 		ctx.Error(err)
 	}
 	if !ok {
-		adminuser.CounterIncr(admin.CounterPassword)
+		lc.Incr(admin.LCP)
 		output := app.Output()
-		output.Assgin("captcha_open", isOpenCaptcha)
-		if isOpenCaptcha {
-			token := form.CaptchaToken
-			var img *string
-			if adminuser.CaptchaTokenCheck(&token) {
-				img, _ = adminuser.CaptchaLaod(token)
-				token = form.CaptchaToken
+		if admin.NewLoginCaptchaCondition(lc).Check() {
+			captcha = admin.NewLoginCaptcha(adminuser)
+			captchaOpend = true
+		}
+		output.Assgin("captcha_open", captchaOpend)
+		if captchaOpend {
+			var (
+				img   *string
+				token string
+			)
+			keyid := form.CaptchaT
+			if captcha.Token2KeyID(&keyid) {
+				img, token = captcha.Generate(keyid)
 			} else {
-				img, token = adminuser.CaptchaLaod()
+				img, token = captcha.Generate()
 			}
 			output.Assgin("captcha_token", token)
 			output.Assgin("captcha_image", *img)
@@ -191,8 +212,8 @@ func passport(ctx *gin.Context) {
 		return
 	}
 
-	adminuser.CounterClear()
-	adminuser.ClearTemp()
+	lc.Clear()
+	password.Clear()
 
 	logtext.Msg = "登录成功"
 	app.Output(gin.H{"access_token": ""}).DisplayJSON(ctx, app.StatusOK)

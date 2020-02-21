@@ -78,6 +78,7 @@ layui.define(['admin', 'form', 'jsencrypt'], function(exports){
     $.post(setter.apiurl + 'auth/passport', obj.field).done(function (resp) {
       if (resp.code == 11003) {
         if (resp.data.captcha_open) {
+          $('#captcha-switch').show();
           $('#captcha-token').val(resp.data.captcha_token);
           $('#LAY-user-get-vercode').attr('src', resp.data.captcha_image);
         }
