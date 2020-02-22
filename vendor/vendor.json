@@ -183,6 +183,12 @@
 			"revisionTime": "2019-08-01T02:05:20Z"
 		},
 		{
+			"checksumSHA1": "zAIqUeexPaPQjuCf6LzylJ1swSo=",
+			"path": "github.com/thinkoner/openssl",
+			"revision": "1df12dff7f463273e9206c20021f5841f3131a5d",
+			"revisionTime": "2019-10-16T10:48:10Z"
+		},
+		{
 			"checksumSHA1": "EgaGB3IkV8xbR7Z2kgSQBhtSvoY=",
 			"path": "github.com/ugorji/go/codec",
 			"revision": "2dc34c0b87808deb8e2c69e1625db4c14e5d0d4a",
