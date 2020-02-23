@@ -113,6 +113,12 @@ func passport(ctx *gin.Context) {
 	var captcha *admin.LoginCaptcha
 	var captchaOpend bool
 
+	ip := ctx.ClientIP()
+	if ip == "" {
+		app.Output(gin.H{"tip": "您的IP无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+		return
+	}
+
 	if err := ctx.ShouldBind(&form); err != nil {
 		ctx.Error(err)
 		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
@@ -216,5 +222,11 @@ func passport(ctx *gin.Context) {
 	password.Clear()
 
 	logtext.Msg = "登录成功"
-	app.Output(gin.H{"access_token": ""}).DisplayJSON(ctx, app.StatusOK)
+	app.Output(gin.H{
+		"access_token":    admin.NewLogin(ctx.ClientIP()).GenerateToken(adminuser, true),
+		"ip":              ip,
+		"uid":             adminuser.ID,
+		"nickname":        adminuser.Nickname,
+		"login_timestamp": time.Now().Unix(),
+	}).DisplayJSON(ctx, app.StatusOK)
 }

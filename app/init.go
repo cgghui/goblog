@@ -39,6 +39,7 @@ func init() {
 	}
 
 	SysConf = map[string]*ini.Section{
+		"":        cfg.Section(""),
 		"log":     cfg.Section("log"),
 		"service": cfg.Section("service"),
 		"db":      cfg.Section("MySQL"),

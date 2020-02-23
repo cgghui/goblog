@@ -1,20 +1,26 @@
 package admin
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"goblog/app"
 	"goblog/model/config"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mojocn/base64Captcha"
+	"github.com/thinkoner/openssl"
 )
 
 // LoginCaptchaStatus 登录页是否须要验证码
@@ -23,6 +29,151 @@ import (
 // condition 根据条件判断 这须要前端传入账号
 func LoginCaptchaStatus() string {
 	return config.GetConfigField("admin", "login_captcha").String()
+}
+
+var loginMutex = &sync.Mutex{}
+
+// Login 管理员登录
+type Login struct {
+	key      []byte
+	iv       []byte
+	expire   time.Duration
+	clientIP string
+	data     LoginSessionData
+}
+
+// LoginSessionData 登录后，存储至redis的数据格式
+type LoginSessionData struct {
+	Timestamp    int64
+	UID          uint
+	LoginIP      string
+	Username     string
+	Nickname     string
+	LastOperTime int64
+}
+
+// NewLogin 实例
+func NewLogin(clientIP string) *Login {
+	return &Login{
+		key:      []byte(app.SysConf[""].Key("loginTokenSecret").MustString("CPWu2g^y5pu1w2Dw")),
+		iv:       []byte(app.SysConf[""].Key("loginTokenIV").MustString("A5R2pu6kAlOy3QuD")),
+		expire:   86400 * time.Second,
+		clientIP: clientIP,
+	}
+}
+
+// Check 是否登录
+func (l *Login) Check(keyID string, checkIP bool) bool {
+	if err := app.RedisConn.Get(keyID).Scan(l); err != nil {
+		panic(err)
+	}
+	if checkIP && l.data.LoginIP != l.clientIP {
+		return false
+	}
+	diff := time.Unix(l.data.LastOperTime, 0).Add(
+		config.GetConfigField("admin", "login_session_expire").Time(),
+	).Sub(time.Now()).Seconds()
+	if diff < 0 {
+		return false
+	}
+	l.data.LastOperTime = time.Now().Unix()
+	l.data.LoginIP = l.clientIP
+	if err := app.RedisConn.Set(keyID, l, l.expire).Err(); err != nil {
+		panic(err)
+	}
+	return true
+}
+
+// func (l *Login) SignGet() {
+
+// }
+
+// GenerateToken 获取登录Token
+// 凭此Token可以以管理员身份证进行会话
+func (l *Login) GenerateToken(a *Admins, update bool) string {
+	keyid := l.createKeyID(a.ID)
+	l.data = LoginSessionData{
+		LoginIP:   l.clientIP,
+		Nickname:  a.Nickname,
+		Timestamp: time.Now().Unix(),
+		UID:       a.ID,
+		Username:  a.Username,
+	}
+	l.data.LastOperTime = l.data.Timestamp
+	if err := app.RedisConn.Set(keyid, l, l.expire).Err(); err != nil {
+		panic(err)
+	}
+	// 对keyid进行加密 加密串即为token
+	token, err := openssl.AesCBCEncrypt([]byte(keyid), l.key, l.iv, openssl.PKCS7_PADDING)
+	if err != nil {
+		if e := app.RedisConn.Del(keyid).Err(); err != nil {
+			panic(errors.New("error1: " + err.Error() + "\nerror2: " + e.Error()))
+		}
+		panic(err)
+	}
+	// 更新用户信息
+	if update {
+		if err := app.DBConn.Model(a).Updates(Admins{LoginIP: l.clientIP}).Error; err != nil {
+			if e := app.RedisConn.Del(keyid).Err(); err != nil {
+				panic(errors.New("error1: " + err.Error() + "\nerror2: " + e.Error()))
+			}
+			panic(err)
+		}
+	}
+	return base64.StdEncoding.EncodeToString(token)
+}
+
+// Token2KeyID 将Token转换为KeyID
+func (l *Login) Token2KeyID(token *string) bool {
+	keyid, err := base64.StdEncoding.DecodeString(*token)
+	if err != nil {
+		return false
+	}
+	keyid, err = openssl.AesCBCDecrypt(keyid, l.key, l.iv, openssl.PKCS7_PADDING)
+	if err != nil {
+		return false
+	}
+	*token = string(keyid)
+	return true
+}
+
+// func (l *Login) SignOut() {
+
+// }
+
+func (l *Login) createKeyID(adminID uint) string {
+	loginMutex.Lock()
+	defer func() {
+		loginMutex.Unlock()
+	}()
+	key := ""
+	for {
+		key = fmt.Sprintf("ADMIN_%d_%d", adminID, time.Now().UnixNano()/1e6)
+		num, err := app.RedisConn.Exists(key).Result()
+		if err != nil {
+			panic(err)
+		}
+		if num == 0 {
+			break
+		}
+	}
+	return key
+}
+
+// MarshalBinary 序列化 存储到Redis的数据 该方法实现了encoding.BinaryMarshaler接口
+func (l *Login) MarshalBinary() ([]byte, error) {
+	tmp := bytes.Buffer{}
+	if err := gob.NewEncoder(&tmp).Encode(l.data); err != nil {
+		return nil, err
+	}
+	l.data = LoginSessionData{}
+	return tmp.Bytes(), nil
+}
+
+// UnmarshalBinary 序列化 存储到Redis的数据 该方法实现了encoding.BinaryUnmarshaler接口
+func (l *Login) UnmarshalBinary(data []byte) error {
+	tmp := bytes.NewBuffer(data)
+	return gob.NewDecoder(tmp).Decode(&l.data)
 }
 
 // < 登录密码校验 >
@@ -273,7 +424,11 @@ func (l *LoginMalicePrevent) LockTTL() int {
 	if n < l.Password || t == nil {
 		return 0
 	}
-	return int(t.Add(time.Duration(l.LockTime) * time.Second).Sub(time.Now()).Seconds())
+	diff := int(t.Add(time.Duration(l.LockTime) * time.Second).Sub(time.Now()).Seconds())
+	if diff <= 0 {
+		diff = 0
+	}
+	return diff
 }
 
 // Check 账号是否被锁定登录 true锁定 false没有锁定
