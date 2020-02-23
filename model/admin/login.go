@@ -52,6 +52,12 @@ type LoginSessionData struct {
 	LastOperTime int64
 }
 
+func (l LoginSessionData) Invalid() float64 {
+	return time.Unix(l.LastOperTime, 0).Add(
+		config.GetConfigField("admin", "login_session_expire").Time(),
+	).Sub(time.Now()).Seconds()
+}
+
 // NewLogin 实例
 func NewLogin(clientIP string) *Login {
 	return &Login{
@@ -63,30 +69,32 @@ func NewLogin(clientIP string) *Login {
 }
 
 // Check 是否登录
-func (l *Login) Check(keyID string, checkIP bool) bool {
+func (l *Login) Check(keyID string, checkIP bool, ret *LoginSessionData) bool {
+	if app.RedisConn.Exists(keyID).Val() == 0 {
+		return false
+	}
 	if err := app.RedisConn.Get(keyID).Scan(l); err != nil {
 		panic(err)
 	}
 	if checkIP && l.data.LoginIP != l.clientIP {
 		return false
 	}
-	diff := time.Unix(l.data.LastOperTime, 0).Add(
-		config.GetConfigField("admin", "login_session_expire").Time(),
-	).Sub(time.Now()).Seconds()
-	if diff < 0 {
+	if l.data.Invalid() < 0 {
+		if err := app.RedisConn.Del(keyID).Err(); err != nil {
+			panic(err)
+		}
 		return false
 	}
 	l.data.LastOperTime = time.Now().Unix()
 	l.data.LoginIP = l.clientIP
+	tmp := l.data
 	if err := app.RedisConn.Set(keyID, l, l.expire).Err(); err != nil {
 		panic(err)
 	}
+	l.data = tmp
+	*ret = l.data
 	return true
 }
-
-// func (l *Login) SignGet() {
-
-// }
 
 // GenerateToken 获取登录Token
 // 凭此Token可以以管理员身份证进行会话
@@ -137,9 +145,23 @@ func (l *Login) Token2KeyID(token *string) bool {
 	return true
 }
 
-// func (l *Login) SignOut() {
+// OutKeyID 退出
+func (l *Login) OutKeyID(keyID string) {
+	if err := app.RedisConn.Del(keyID).Err(); err != nil {
+		panic(err)
+	}
+}
 
-// }
+// OutUserAll 清退所有
+func (l *Login) OutUserAll(adminID uint) {
+	list, err := app.RedisConn.Keys(fmt.Sprintf("ADMIN_%d_*", adminID)).Result()
+	if err != nil {
+		panic(err)
+	}
+	if err := app.RedisConn.Del(list...).Err(); err != nil {
+		panic(err)
+	}
+}
 
 func (l *Login) createKeyID(adminID uint) string {
 	loginMutex.Lock()
