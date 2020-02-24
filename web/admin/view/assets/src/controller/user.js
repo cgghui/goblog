@@ -82,6 +82,20 @@ layui.define(['admin', 'form', 'jsencrypt'], function(exports){
           $('#captcha-token').val(resp.data.captcha_token);
           $('#LAY-user-get-vercode').attr('src', resp.data.captcha_image);
         }
+        return;
+      }
+      if (resp.code === 0 && resp.msg === "success") {
+        layui.data(
+          setter.tableName,
+          {key: setter.request.tokenName, value: resp.data.access_token}
+        );
+        layer.msg('登入成功', {
+          offset: '15px'
+          ,icon: 1
+          ,time: 1000
+        }, function(){
+          location.hash = search.redirect ? decodeURIComponent(search.redirect) : '/';
+        });
       }
     });
 

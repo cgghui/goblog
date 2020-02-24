@@ -1,5 +1,5 @@
 {
-  "code": 1001
+  "code": 0
   ,"msg": ""
   ,"data": {
     "newmsg": 3
