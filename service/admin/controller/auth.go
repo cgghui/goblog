@@ -14,9 +14,11 @@ type Auth struct {
 
 //Construct 构造方法
 func (a *Auth) Construct(app *app.App) {
-	app.GET("/auth/check", check)
-	app.GET("/auth/load_captcha", loadCaptcha)
-	app.POST("/auth/passport", passport)
+	auth := app.Group("/auth")
+	auth.GET("/check", check)
+	auth.GET("/load_captcha", loadCaptcha)
+	auth.POST("/passport", passport)
+	auth.GET("/userinfo", userinfo)
 }
 
 // 登录前检测账号的状态
@@ -76,7 +78,6 @@ func check(ctx *gin.Context) {
 // URL auth/loadCaptcha?username=val&token=
 // Method GET
 func loadCaptcha(ctx *gin.Context) {
-
 	username := ctx.Query("username")
 	if len(username) == 0 {
 		app.Output(gin.H{"tip": "请传入账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
@@ -228,5 +229,11 @@ func passport(ctx *gin.Context) {
 		"uid":             adminuser.ID,
 		"nickname":        adminuser.Nickname,
 		"login_timestamp": time.Now().Unix(),
+	}).DisplayJSON(ctx, app.StatusOK)
+}
+
+func userinfo(ctx *gin.Context) {
+	app.Output(gin.H{
+		"username": SessionUser.Nickname,
 	}).DisplayJSON(ctx, app.StatusOK)
 }

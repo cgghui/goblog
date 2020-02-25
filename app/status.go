@@ -12,6 +12,7 @@ const (
 	StatusUserLocked   = 11002
 	StatusCaptchaError = 12000
 	StatusPasswordErr  = 11003
+	StatusAuthInvalid  = 13000
 )
 
 var statusRet = map[int]bool{
@@ -23,6 +24,7 @@ var statusRet = map[int]bool{
 	StatusUserLocked:   false,
 	StatusCaptchaError: false,
 	StatusPasswordErr:  false,
+	StatusAuthInvalid:  false,
 }
 
 var statusMsg = map[int]string{
@@ -34,6 +36,7 @@ var statusMsg = map[int]string{
 	StatusUserLocked:   "账号被锁定",
 	StatusCaptchaError: "验证码错误",
 	StatusPasswordErr:  "密码错误",
+	StatusAuthInvalid:  "尚未登录",
 }
 
 // StatusRet 返回相关结果

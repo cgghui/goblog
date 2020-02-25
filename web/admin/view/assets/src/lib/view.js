@@ -74,9 +74,9 @@ layui.define(['laytpl', 'layer'], function(exports){
       : options.data;
 
       //自动给参数传入默认 token
-      options.data[request.tokenName] = request.tokenName in sendData
-        ?  options.data[request.tokenName]
-      : (layui.data(setter.tableName)[request.tokenName] || '');
+      // options.data[request.tokenName] = request.tokenName in sendData
+      //   ?  options.data[request.tokenName]
+      // : (layui.data(setter.tableName)[request.tokenName] || '');
       
       //自动给 Request Headers 传入 token
       options.headers[request.tokenName] = request.tokenName in options.headers 

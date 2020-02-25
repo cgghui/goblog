@@ -69,14 +69,14 @@ func NewLogin(clientIP string) *Login {
 }
 
 // Check 是否登录
-func (l *Login) Check(keyID string, checkIP bool, ret *LoginSessionData) bool {
+func (l *Login) Check(keyID string, ret *LoginSessionData) bool {
 	if app.RedisConn.Exists(keyID).Val() == 0 {
 		return false
 	}
 	if err := app.RedisConn.Get(keyID).Scan(l); err != nil {
 		panic(err)
 	}
-	if checkIP && l.data.LoginIP != l.clientIP {
+	if config.GetConfigField("admin", "login_ip_only").Bool() && l.data.LoginIP != l.clientIP {
 		return false
 	}
 	if l.data.Invalid() < 0 {

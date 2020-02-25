@@ -68,6 +68,14 @@ func (c *Configs) Int() int {
 	return ret
 }
 
+// Bool value为boolean
+func (c *Configs) Bool() bool {
+	if c.Type != "bool" {
+		panic(fmt.Sprintf("Error: %s[%s] = %s value not bool", c.Namespace, c.Field, c.Value))
+	}
+	return c.Value == "true"
+}
+
 // BindStruct BIND JSON
 func (c *Configs) BindStruct(result interface{}) {
 	if err := json.Unmarshal([]byte(c.Value), &result); err != nil {
