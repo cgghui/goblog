@@ -234,6 +234,8 @@ func passport(ctx *gin.Context) {
 
 func userinfo(ctx *gin.Context) {
 	app.Output(gin.H{
-		"username": SessionUser.Nickname,
+		"username":        SessionUser.Nickname,
+		"login_timestamp": SessionUser.Timestamp,
+		"login_ip":        SessionUser.LoginIP,
 	}).DisplayJSON(ctx, app.StatusOK)
 }

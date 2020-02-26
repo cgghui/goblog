@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"goblog/app"
 	"goblog/model/config"
+	"html/template"
 	"net/http"
 	"os"
 
@@ -36,9 +37,16 @@ func (c *Common) Construct(appx *app.App) {
 
 	// 全局模板变量
 	tplvars["surl"] = SSU
+	tplvars["apihost"] = app.SysConf[""].Key("apiServiceHost").MustString("")
 	tplvars["container_name"] = app.SysConf["service"].Key("frontend_ContainerName").MustString("")
 	tplvars["front_end_version"] = app.SysConf["service"].Key("frontend_Version").MustString("")
 	tplvars["session_name"] = config.GetConfigField("admin", "session_name").String()
+
+	appx.SetFuncMap(template.FuncMap{
+		"ApiUrl": func(path string) string {
+			return tplvars["apihost"].(string) + path
+		},
+	})
 
 	// 加载模板文件
 	appx.LoadHTMLGlob(TPLRootPath + "*")
@@ -50,6 +58,10 @@ func (c *Common) Construct(appx *app.App) {
 
 	//
 	appx.NoRoute(func(ctx *gin.Context) {
+		if ctx.Request.URL.Path == "/tpl/layout.html" {
+			app.Output(tplvars).DisplayHTML(ctx, "layout.html")
+			return
+		}
 		app.Output(tplvars).DisplayHTML(ctx, "error_404.html", http.StatusNotFound)
 	})
 
@@ -60,8 +72,6 @@ func (c *Common) Construct(appx *app.App) {
 
 	// 加载各个模板文件
 	appx.GET("/tpl/:dir/:file", func(ctx *gin.Context) {
-
-		ctx.Header("Content-Type", "text/plain; charset=utf-8")
 
 		dir, tplf := ctx.Param("dir"), ctx.Param("file")
 		if len(dir) == 0 || len(tplf) == 0 {
