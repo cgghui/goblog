@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,11 +41,18 @@ func (c *Common) Construct(appx *app.App) {
 	tplvars["apihost"] = app.SysConf[""].Key("apiServiceHost").MustString("")
 	tplvars["container_name"] = app.SysConf["service"].Key("frontend_ContainerName").MustString("")
 	tplvars["front_end_version"] = app.SysConf["service"].Key("frontend_Version").MustString("")
-	tplvars["session_name"] = config.GetConfigField("admin", "session_name").String()
+	tplvars["session_name"] = config.Get("admin", "session_name").String()
 
 	appx.SetFuncMap(template.FuncMap{
 		"ApiUrl": func(path string) string {
 			return tplvars["apihost"].(string) + path
+		},
+		"GetConfVal": func(field string) string {
+			if strings.Index(field, ".") == -1 {
+				return ""
+			}
+			r := strings.SplitN(field, ".", 2)
+			return config.Get(r[0], r[1]).Value
 		},
 	})
 

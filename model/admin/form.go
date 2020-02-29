@@ -22,6 +22,6 @@ func (f FormLogin) GetAdmin() *Admins {
 // CheckCaptchaQuantity 验证码码数是否一致
 func (f FormLogin) CheckCaptchaQuantity() bool {
 	conf := base64Captcha.ConfigCharacter{}
-	config.GetConfigField("admin", "login_captcha_config").BindStruct(&conf)
+	config.Get("admin", "login_captcha_config").BindStruct(&conf)
 	return conf.CaptchaLen == len(f.CaptchaC)
 }

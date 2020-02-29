@@ -9,5 +9,6 @@ func main() {
 	app.New([]app.RouteBuilder{
 		&controller.Common{},
 		&controller.Auth{},
+		&controller.Notice{},
 	})
 }

@@ -32,16 +32,16 @@ func init() {
 	}
 }
 
-// GetConfigField 取出一个值
-func GetConfigField(namespace, field string) *Configs {
+// Get 取出一个值
+func Get(namespace, field string) *Configs {
 	if val, ok := conf[namespace][field]; ok {
 		return val
 	}
 	panic(fmt.Sprintf("Error: conf[%s][%s] does not exist", namespace, field))
 }
 
-// GetConfigNamespace 取出一个空间的配置
-func GetConfigNamespace(namespace string) map[string]*Configs {
+// GetNamespace 取出一个空间的配置
+func GetNamespace(namespace string) map[string]*Configs {
 	if val, ok := conf[namespace]; ok {
 		return val
 	}

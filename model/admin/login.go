@@ -28,7 +28,7 @@ import (
 // off 关闭
 // condition 根据条件判断 这须要前端传入账号
 func LoginCaptchaStatus() string {
-	return config.GetConfigField("admin", "login_captcha").String()
+	return config.Get("admin", "login_captcha").String()
 }
 
 var loginMutex = &sync.Mutex{}
@@ -52,9 +52,10 @@ type LoginSessionData struct {
 	LastOperTime int64
 }
 
+// Invalid Session是否过期
 func (l LoginSessionData) Invalid() float64 {
 	return time.Unix(l.LastOperTime, 0).Add(
-		config.GetConfigField("admin", "login_session_expire").Time(),
+		config.Get("admin", "login_session_expire").Time(),
 	).Sub(time.Now()).Seconds()
 }
 
@@ -74,9 +75,9 @@ func (l *Login) Check(keyID string, ret *LoginSessionData) bool {
 		return false
 	}
 	if err := app.RedisConn.Get(keyID).Scan(l); err != nil {
-		panic(err)
+		return false
 	}
-	if config.GetConfigField("admin", "login_ip_only").Bool() && l.data.LoginIP != l.clientIP {
+	if config.Get("admin", "login_ip_only").Bool() && l.data.LoginIP != l.clientIP {
 		return false
 	}
 	if l.data.Invalid() < 0 {
@@ -328,7 +329,7 @@ func (lc *LoginCounter) Incr(field CounterField) {
 	num++
 	data, err := json.Marshal([]interface{}{
 		num,
-		config.GetConfigField("admin", "login_counter_expire").TimeNowAddToUnix(),
+		config.Get("admin", "login_counter_expire").TimeNowAddToUnix(),
 		time.Now().Unix(),
 	})
 	if err != nil {
@@ -381,7 +382,7 @@ type LoginCaptchaCondition struct {
 // NewLoginCaptchaCondition 实例
 func NewLoginCaptchaCondition(lc *LoginCounter) *LoginCaptchaCondition {
 	ret := &LoginCaptchaCondition{}
-	config.GetConfigField("admin", "login_captcha_condition").BindStruct(ret)
+	config.Get("admin", "login_captcha_condition").BindStruct(ret)
 	ret.lc = lc
 	return ret
 }
@@ -435,7 +436,7 @@ type LoginMalicePrevent struct {
 // NewLoginMalicePrevent 实例
 func NewLoginMalicePrevent(lc *LoginCounter) *LoginMalicePrevent {
 	ret := LoginMalicePrevent{}
-	config.GetConfigField("admin", "login_malice_prevent").BindStruct(&ret)
+	config.Get("admin", "login_malice_prevent").BindStruct(&ret)
 	ret.lc = lc
 	return &ret
 }
@@ -490,12 +491,12 @@ func NewLoginCaptcha(a *Admins) *LoginCaptcha {
 func (l *LoginCaptcha) Generate(keyids ...string) (*string, string) {
 
 	conf := base64Captcha.ConfigCharacter{}
-	config.GetConfigField("admin", "login_captcha_config").BindStruct(&conf)
+	config.Get("admin", "login_captcha_config").BindStruct(&conf)
 
 	cimg := base64Captcha.EngineCharCreate(conf)
 	verifyCode, err := json.Marshal([]interface{}{
 		cimg.VerifyValue,
-		config.GetConfigField("admin", "login_captcha_expire").TimeNowAddToUnix(),
+		config.Get("admin", "login_captcha_expire").TimeNowAddToUnix(),
 	})
 	if err != nil {
 		panic(err)

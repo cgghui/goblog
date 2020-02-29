@@ -15,17 +15,18 @@ type Auth struct {
 //Construct 构造方法
 func (a *Auth) Construct(app *app.App) {
 	auth := app.Group("/auth")
-	auth.GET("/check", check)
-	auth.GET("/load_captcha", loadCaptcha)
-	auth.POST("/passport", passport)
-	auth.GET("/userinfo", userinfo)
+	auth.GET("/check", a.check)
+	auth.GET("/load_captcha", a.loadCaptcha)
+	auth.POST("/passport", a.passport)
+	auth.GET("/userinfo", a.userinfo)
+	auth.GET("/logout", a.logout)
 }
 
 // 登录前检测账号的状态
 // 最好是在账号输入框失去焦点时 调用接口进行检测
 // URL auth/check?username=val
 // Method GET
-func check(ctx *gin.Context) {
+func (*Auth) check(ctx *gin.Context) {
 
 	// 检测输入的账号
 	username := ctx.Query("username")
@@ -77,7 +78,7 @@ func check(ctx *gin.Context) {
 // 登录时重新加载验证码 如果用户看清 可调用该接口刷新验证码
 // URL auth/loadCaptcha?username=val&token=
 // Method GET
-func loadCaptcha(ctx *gin.Context) {
+func (*Auth) loadCaptcha(ctx *gin.Context) {
 	username := ctx.Query("username")
 	if len(username) == 0 {
 		app.Output(gin.H{"tip": "请传入账号"}).DisplayJSON(ctx, app.StatusQueryInvalid)
@@ -108,7 +109,7 @@ func loadCaptcha(ctx *gin.Context) {
 	app.Output(gin.H{"image": *img}).DisplayJSON(ctx, app.StatusOK)
 }
 
-func passport(ctx *gin.Context) {
+func (*Auth) passport(ctx *gin.Context) {
 
 	var form admin.FormLogin
 	var captcha *admin.LoginCaptcha
@@ -232,10 +233,19 @@ func passport(ctx *gin.Context) {
 	}).DisplayJSON(ctx, app.StatusOK)
 }
 
-func userinfo(ctx *gin.Context) {
+func (*Auth) userinfo(ctx *gin.Context) {
 	app.Output(gin.H{
 		"username":        SessionUser.Nickname,
 		"login_timestamp": SessionUser.Timestamp,
 		"login_ip":        SessionUser.LoginIP,
+	}).DisplayJSON(ctx, app.StatusOK)
+}
+
+func (*Auth) logout(ctx *gin.Context) {
+	ip := ctx.ClientIP()
+	admin.NewLogin(ip).OutKeyID(SessionID)
+	app.Output(gin.H{
+		"ip":  ip,
+		"bye": "Bye-bye, please take care, welcome to you next time! ",
 	}).DisplayJSON(ctx, app.StatusOK)
 }
