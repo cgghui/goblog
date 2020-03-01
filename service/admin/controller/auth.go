@@ -233,12 +233,21 @@ func (*Auth) passport(ctx *gin.Context) {
 	}).DisplayJSON(ctx, app.StatusOK)
 }
 
+// 当前登录用户的息
 func (*Auth) userinfo(ctx *gin.Context) {
-	app.Output(gin.H{
-		"username":        SessionUser.Nickname,
-		"login_timestamp": SessionUser.Timestamp,
+	data := gin.H{
+		"nickname":        SessionUser.Nickname,
 		"login_ip":        SessionUser.LoginIP,
-	}).DisplayJSON(ctx, app.StatusOK)
+		"login_timestamp": SessionUser.Timestamp,
+	}
+	if full := ctx.Query("full"); len(full) == 0 {
+		app.Output(data).DisplayJSON(ctx, app.StatusOK)
+	} else {
+		app.Output(data).Assgin(
+			"detail", admin.GetByID(SessionUser.UID).Output(),
+		).DisplayJSON(ctx, app.StatusOK)
+	}
+	return
 }
 
 func (*Auth) logout(ctx *gin.Context) {

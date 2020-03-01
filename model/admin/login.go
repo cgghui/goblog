@@ -397,7 +397,7 @@ func (l *LoginCaptchaCondition) Check(a ...*Admins) bool {
 		if status == "off" {
 			return false
 		}
-		if a[0].CaptchaIsOpen == "Y" {
+		if a[0].CaptchaStatus == "Y" {
 			return true
 		}
 	}

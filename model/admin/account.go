@@ -24,12 +24,17 @@ func PasswordVerify(hashedPassword, password []byte) bool {
 // Admins 全局参数配置
 type Admins struct {
 	gorm.Model
-	Nickname      string `gorm:"type:varchar(128)"`
-	Username      string `gorm:"type:varchar(128)"`
+	Username      string `gorm:"type:varchar(64)"`
 	Password      string `gorm:"type:varchar(256)"`
 	Status        string `gorm:"type:enum('locked','normal')"`
-	CaptchaIsOpen string `gorm:"type:enum('Y','C')"`
+	CaptchaStatus string `gorm:"type:enum('Y','C')"`
 	LoginIP       string `gorm:"type:varchar(32)"`
+	Nickname      string `gorm:"type:varchar(64)"`
+	Gender        string `gorm:"type:enum('M','W', 'X')"`
+	Avatar        string `gorm:"type:varchar(128)"`
+	Mobile        string `gorm:"type:varchar(32)"`
+	Email         string `gorm:"type:varchar(64)"`
+	Intro         string `gorm:"type:varchar(256)"`
 	rsa           *RSA
 }
 
@@ -50,6 +55,22 @@ func GetByID(id uint) *Admins {
 // Has 管理员是否存在 true存在 false不存在
 func (a *Admins) Has() bool {
 	return a.ID != 0
+}
+
+// Output 可以展示到前端的数据
+func (a *Admins) Output() map[string]interface{} {
+	return map[string]interface{}{
+		"uid":             a.ID,
+		"username":        a.Username,
+		"nickname":        a.Nickname,
+		"gender":          a.Gender,
+		"avatar":          a.Avatar,
+		"mobile":          a.Mobile,
+		"email":           a.Email,
+		"intro":           a.Intro,
+		"join_time":       a.CreatedAt.Unix(),
+		"last_login_time": a.UpdatedAt.Unix(),
+	}
 }
 
 // RSA 加密解密操作对象
