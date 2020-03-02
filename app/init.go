@@ -32,6 +32,7 @@ var (
 
 func init() {
 
+	// ../../config.ini 主配置文件 实际环境可能会发生变化
 	cfg, err := ini.Load("../../config.ini", "config.ini")
 	if err != nil {
 		log.Printf("Fail load config file: %v\n", err)

@@ -75,7 +75,10 @@ func New(rcs []RouteBuilder) {
 		WriteTimeout: time.Duration(SysConf["service"].Key("wtimeout").MustInt64(0)) * time.Second,
 	}
 
-	s.ListenAndServe()
+	if err := s.ListenAndServe(); err != nil {
+		log.Printf("%v\n", err)
+		os.Exit(1)
+	}
 }
 
 // 日志中间件
