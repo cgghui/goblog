@@ -1,12 +1,13 @@
 package app
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/gin-contrib/sessions/redis"
-	rediscli "github.com/go-redis/redis/v7"
+	bolgredis "github.com/go-redis/redis/v7"
 	"github.com/jinzhu/gorm"
 	"gopkg.in/ini.v1"
 
@@ -19,21 +20,24 @@ const (
 	SystemName    = "GoBlog"               // 系统名称
 	SystemVersion = "1.0.0"                // 系统版本
 	SystemHomeURL = "http://www.04559.com" // 系统官方网址
-	SystemAuthor  = "chen guang hui"       // 系统作者
+	SystemAuthor  = "chenGuangHui"         // 系统作者
 )
 
 // Global Var
 var (
 	SysConf   map[string]*ini.Section
 	DBConn    *gorm.DB
-	RedisConn *rediscli.Client
+	RedisConn *bolgredis.Client
 	Session   redis.Store
 )
 
 func init() {
 
-	// ../../config.ini 主配置文件 实际环境可能会发生变化
-	cfg, err := ini.Load("../../config.ini", "config.ini")
+	var cnf string
+	flag.StringVar(&cnf, "cnf", "", "系统配置文件路径")
+	flag.Parse()
+
+	cfg, err := ini.Load(cnf, "config.cnf")
 	if err != nil {
 		log.Printf("Fail load config file: %v\n", err)
 		os.Exit(1)
@@ -97,7 +101,7 @@ func initRedis() {
 	if conf.Key("status").MustString("enable") == "disable" {
 		return
 	}
-	RedisConn = rediscli.NewClient(&rediscli.Options{
+	RedisConn = bolgredis.NewClient(&bolgredis.Options{
 		Network:  conf.Key("network").MustString("tcp"),
 		Addr:     conf.Key("host").MustString("127.0.0.1:6379"),
 		Password: conf.Key("auth").MustString(""),
