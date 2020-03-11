@@ -7,6 +7,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type Gender string
+
+func (g Gender) In() bool {
+	for _, gender := range Genders {
+		if gender == g {
+			return true
+		}
+	}
+	return false
+}
+
+var Genders = []Gender{"M", "W", "X"}
+
 // PasswordGenerate retun 密码密文
 func PasswordGenerate(password string) string {
 	temp, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -43,6 +56,13 @@ func GetByUsername(username string) *Admins {
 	admin := &Admins{}
 	app.DBConn.Where("username = ?", username).First(admin)
 	return admin
+}
+
+// NicknameCheckUsed 如果未使用返回0，否则返回占用的ID
+func NicknameCheckUsed(nickname string) uint {
+	admin := &Admins{}
+	app.DBConn.Where("nickname = ?", nickname).First(admin)
+	return admin.ID
 }
 
 // GetByID 根据管理员ID，取出该管理员对象

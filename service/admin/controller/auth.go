@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+	"github.com/gin-gonic/gin/binding"
 	"goblog/app"
 	"goblog/model/admin"
 	"time"
@@ -19,6 +21,7 @@ func (a *Auth) Construct(app *app.App) {
 	auth.GET("/load_captcha", a.loadCaptcha)
 	auth.POST("/passport", a.passport)
 	auth.GET("/userinfo", a.userinfo)
+	auth.POST("/userinfo_update", a.userinfoUpdate)
 	auth.GET("/logout", a.logout)
 }
 
@@ -121,7 +124,7 @@ func (*Auth) passport(ctx *gin.Context) {
 		return
 	}
 
-	if err := ctx.ShouldBind(&form); err != nil {
+	if err := ctx.BindWith(&form, binding.Form); err != nil {
 		ctx.Error(err)
 		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 		return
@@ -248,6 +251,33 @@ func (*Auth) userinfo(ctx *gin.Context) {
 		).DisplayJSON(ctx, app.StatusOK)
 	}
 	return
+}
+
+func (*Auth) userinfoUpdate(ctx *gin.Context) {
+	form := struct {
+		Nickname string       `form:"username" binding:"required"`
+		Gender   admin.Gender `form:"gender"`
+		Mobile   string       `form:"mobile"`
+		Email    string       `form:"email"`
+		Remarks  string       `form:"remarks"`
+	}{}
+	if err := ctx.BindWith(&form, binding.Form); err != nil {
+		ctx.Error(err)
+		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
+	}
+	update := admin.Admins{}
+	if form.Nickname != SessionUser.Nickname {
+		if admin.NicknameCheckUsed(form.Nickname) != 0 {
+			app.Output(gin.H{"f": "nickname", "v": form.Nickname}).DisplayJSON(ctx, app.StatusNicknameUsed)
+			return
+		}
+		update.Nickname = form.Nickname
+	}
+	if !form.Gender.In() {
+		app.Output(gin.H{"f": "gender", "v": form.Gender}).DisplayJSON(ctx, app.StatusGenderInvalid)
+		return
+	}
+	fmt.Printf("%+v", form)
 }
 
 func (*Auth) logout(ctx *gin.Context) {
