@@ -2,23 +2,11 @@ package admin
 
 import (
 	"goblog/app"
+	"goblog/model/common"
 
 	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/bcrypt"
 )
-
-type Gender string
-
-func (g Gender) In() bool {
-	for _, gender := range Genders {
-		if gender == g {
-			return true
-		}
-	}
-	return false
-}
-
-var Genders = []Gender{"M", "W", "X"}
 
 // PasswordGenerate retun 密码密文
 func PasswordGenerate(password string) string {
@@ -37,17 +25,17 @@ func PasswordVerify(hashedPassword, password []byte) bool {
 // Admins 全局参数配置
 type Admins struct {
 	gorm.Model
-	Username      string `gorm:"type:varchar(64)"`
-	Password      string `gorm:"type:varchar(256)"`
-	Status        string `gorm:"type:enum('locked','normal')"`
-	CaptchaStatus string `gorm:"type:enum('Y','C')"`
-	LoginIP       string `gorm:"type:varchar(32)"`
-	Nickname      string `gorm:"type:varchar(64)"`
-	Gender        string `gorm:"type:enum('M','W', 'X')"`
-	Avatar        string `gorm:"type:varchar(128)"`
-	Mobile        string `gorm:"type:varchar(32)"`
-	Email         string `gorm:"type:varchar(64)"`
-	Intro         string `gorm:"type:varchar(256)"`
+	Username      string        `gorm:"type:varchar(64)"`
+	Password      string        `gorm:"type:varchar(256)"`
+	Status        string        `gorm:"type:enum('locked','normal')"`
+	CaptchaStatus string        `gorm:"type:enum('Y','C')"`
+	LoginIP       string        `gorm:"type:varchar(32)"`
+	Nickname      string        `gorm:"type:varchar(64)"`
+	Gender        common.Gender `gorm:"type:enum('M','W', 'X')"`
+	Avatar        string        `gorm:"type:varchar(128)"`
+	Mobile        common.Mobile `gorm:"type:varchar(32)"`
+	Email         common.Email  `gorm:"type:varchar(64)"`
+	Intro         string        `gorm:"type:varchar(256)"`
 	rsa           *RSA
 }
 

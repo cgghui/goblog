@@ -14,7 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"goblog/app"
-	"goblog/model/config"
+	"goblog/model/common"
 	"strings"
 	"sync"
 	"time"
@@ -28,7 +28,7 @@ import (
 // off 关闭
 // condition 根据条件判断 这须要前端传入账号
 func LoginCaptchaStatus() string {
-	return config.Get("admin", "login_captcha").String()
+	return common.Get("admin", "login_captcha").String()
 }
 
 var loginMutex = &sync.Mutex{}
@@ -55,7 +55,7 @@ type LoginSessionData struct {
 // Invalid Session是否过期
 func (l LoginSessionData) Invalid() float64 {
 	return time.Unix(l.LastOperTime, 0).Add(
-		config.Get("admin", "login_session_expire").Time(),
+		common.Get("admin", "login_session_expire").Time(),
 	).Sub(time.Now()).Seconds()
 }
 
@@ -69,7 +69,8 @@ func NewLogin(clientIP string) *Login {
 	}
 }
 
-// Check 是否登录
+// Check
+// TODO 更新账号的普通资料时，须要调用这个更新Session数据，允许在ret参数中指定新的Nickname
 func (l *Login) Check(keyID string, ret *LoginSessionData) bool {
 	if app.RedisConn.Exists(keyID).Val() == 0 {
 		return false
@@ -77,7 +78,7 @@ func (l *Login) Check(keyID string, ret *LoginSessionData) bool {
 	if err := app.RedisConn.Get(keyID).Scan(l); err != nil {
 		return false
 	}
-	if config.Get("admin", "login_ip_only").Bool() && l.data.LoginIP != l.clientIP {
+	if common.Get("admin", "login_ip_only").Bool() && l.data.LoginIP != l.clientIP {
 		return false
 	}
 	if l.data.Invalid() < 0 {
@@ -88,6 +89,9 @@ func (l *Login) Check(keyID string, ret *LoginSessionData) bool {
 	}
 	l.data.LastOperTime = time.Now().Unix()
 	l.data.LoginIP = l.clientIP
+	if ret.Nickname != "" {
+		l.data.Nickname = ret.Nickname
+	}
 	tmp := l.data
 	if err := app.RedisConn.Set(keyID, l, l.expire).Err(); err != nil {
 		panic(err)
@@ -115,7 +119,7 @@ func (l *Login) GenerateToken(a *Admins, update bool) string {
 	// 对keyid进行加密 加密串即为token
 	token, err := openssl.AesCBCEncrypt([]byte(keyid), l.key, l.iv, openssl.PKCS7_PADDING)
 	if err != nil {
-		if e := app.RedisConn.Del(keyid).Err(); err != nil {
+		if e := app.RedisConn.Del(keyid).Err(); e != nil {
 			panic(errors.New("error1: " + err.Error() + "\nerror2: " + e.Error()))
 		}
 		panic(err)
@@ -123,7 +127,7 @@ func (l *Login) GenerateToken(a *Admins, update bool) string {
 	// 更新用户信息
 	if update {
 		if err := app.DBConn.Model(a).Updates(Admins{LoginIP: l.clientIP}).Error; err != nil {
-			if e := app.RedisConn.Del(keyid).Err(); err != nil {
+			if e := app.RedisConn.Del(keyid).Err(); e != nil {
 				panic(errors.New("error1: " + err.Error() + "\nerror2: " + e.Error()))
 			}
 			panic(err)
@@ -329,7 +333,7 @@ func (lc *LoginCounter) Incr(field CounterField) {
 	num++
 	data, err := json.Marshal([]interface{}{
 		num,
-		config.Get("admin", "login_counter_expire").TimeNowAddToUnix(),
+		common.Get("admin", "login_counter_expire").TimeNowAddToUnix(),
 		time.Now().Unix(),
 	})
 	if err != nil {
@@ -382,7 +386,7 @@ type LoginCaptchaCondition struct {
 // NewLoginCaptchaCondition 实例
 func NewLoginCaptchaCondition(lc *LoginCounter) *LoginCaptchaCondition {
 	ret := &LoginCaptchaCondition{}
-	config.Get("admin", "login_captcha_condition").BindStruct(ret)
+	common.Get("admin", "login_captcha_condition").BindStruct(ret)
 	ret.lc = lc
 	return ret
 }
@@ -436,7 +440,7 @@ type LoginMalicePrevent struct {
 // NewLoginMalicePrevent 实例
 func NewLoginMalicePrevent(lc *LoginCounter) *LoginMalicePrevent {
 	ret := LoginMalicePrevent{}
-	config.Get("admin", "login_malice_prevent").BindStruct(&ret)
+	common.Get("admin", "login_malice_prevent").BindStruct(&ret)
 	ret.lc = lc
 	return &ret
 }
@@ -491,12 +495,12 @@ func NewLoginCaptcha(a *Admins) *LoginCaptcha {
 func (l *LoginCaptcha) Generate(keyids ...string) (*string, string) {
 
 	conf := base64Captcha.ConfigCharacter{}
-	config.Get("admin", "login_captcha_config").BindStruct(&conf)
+	common.Get("admin", "login_captcha_config").BindStruct(&conf)
 
 	cimg := base64Captcha.EngineCharCreate(conf)
 	verifyCode, err := json.Marshal([]interface{}{
 		cimg.VerifyValue,
-		config.Get("admin", "login_captcha_expire").TimeNowAddToUnix(),
+		common.Get("admin", "login_captcha_expire").TimeNowAddToUnix(),
 	})
 	if err != nil {
 		panic(err)

@@ -1,9 +1,8 @@
 package admin
 
 import (
-	"goblog/model/config"
-
 	"github.com/mojocn/base64Captcha"
+	"goblog/model/common"
 )
 
 // FormLogin 后台管理员登录操作
@@ -22,6 +21,6 @@ func (f FormLogin) GetAdmin() *Admins {
 // CheckCaptchaQuantity 验证码码数是否一致
 func (f FormLogin) CheckCaptchaQuantity() bool {
 	conf := base64Captcha.ConfigCharacter{}
-	config.Get("admin", "login_captcha_config").BindStruct(&conf)
+	common.Get("admin", "login_captcha_config").BindStruct(&conf)
 	return conf.CaptchaLen == len(f.CaptchaC)
 }

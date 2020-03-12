@@ -43,7 +43,7 @@ func (o *OutputFMT) Get(field string) (val interface{}, ok bool) {
 }
 
 // Del 删除一个值
-func (o *OutputFMT) Del(field string, value interface{}) *OutputFMT {
+func (o *OutputFMT) Del(field string) *OutputFMT {
 	delete(o.H, field)
 	return o
 }

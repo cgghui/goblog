@@ -3,7 +3,7 @@ package controller
 import (
 	"fmt"
 	"goblog/app"
-	"goblog/model/config"
+	"goblog/model/common"
 	"html/template"
 	"net/http"
 	"os"
@@ -41,7 +41,7 @@ func (c *Common) Construct(appx *app.App) {
 	tplvars["apihost"] = app.SysConf[""].Key("apiServiceHost").MustString("")
 	tplvars["container_name"] = app.SysConf["service"].Key("frontend_ContainerName").MustString("")
 	tplvars["front_end_version"] = app.SysConf["service"].Key("frontend_Version").MustString("")
-	tplvars["session_name"] = config.Get("admin", "session_name").String()
+	tplvars["session_name"] = common.Get("admin", "session_name").String()
 
 	appx.SetFuncMap(template.FuncMap{
 		"ApiUrl": func(path string) string {
@@ -52,7 +52,7 @@ func (c *Common) Construct(appx *app.App) {
 				return ""
 			}
 			r := strings.SplitN(field, ".", 2)
-			return config.Get(r[0], r[1]).Value
+			return common.Get(r[0], r[1]).Value
 		},
 	})
 

@@ -1,10 +1,11 @@
 package controller
 
 import (
-	"fmt"
+	"errors"
 	"github.com/gin-gonic/gin/binding"
 	"goblog/app"
 	"goblog/model/admin"
+	"goblog/model/common"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -115,7 +116,7 @@ func (*Auth) loadCaptcha(ctx *gin.Context) {
 func (*Auth) passport(ctx *gin.Context) {
 
 	var form admin.FormLogin
-	var captcha *admin.LoginCaptcha
+	var captcha = &admin.LoginCaptcha{}
 	var captchaOpend bool
 
 	ip := ctx.ClientIP()
@@ -124,8 +125,8 @@ func (*Auth) passport(ctx *gin.Context) {
 		return
 	}
 
-	if err := ctx.BindWith(&form, binding.Form); err != nil {
-		ctx.Error(err)
+	if err := ctx.ShouldBindWith(&form, binding.Form); err != nil {
+		_ = ctx.Error(err)
 		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 		return
 	}
@@ -180,7 +181,7 @@ func (*Auth) passport(ctx *gin.Context) {
 		}
 		ok, err := captcha.Verify(form.CaptchaC, keyid)
 		if err != nil {
-			ctx.Error(err)
+			_ = ctx.Error(err)
 		}
 		if !ok {
 			lc.Incr(admin.LCC)
@@ -194,7 +195,7 @@ func (*Auth) passport(ctx *gin.Context) {
 
 	ok, err := password.Verify(form.Password)
 	if err != nil {
-		ctx.Error(err)
+		_ = ctx.Error(err)
 	}
 	if !ok {
 		lc.Incr(admin.LCP)
@@ -253,31 +254,70 @@ func (*Auth) userinfo(ctx *gin.Context) {
 	return
 }
 
+var invalids = map[string]int{
+	"gender": app.StatusGenderInvalid,
+	"mobile": app.StatusGenderInvalid,
+	"email":  app.StatusMobileInvalid,
+}
+
 func (*Auth) userinfoUpdate(ctx *gin.Context) {
 	form := struct {
-		Nickname string       `form:"username" binding:"required"`
-		Gender   admin.Gender `form:"gender"`
-		Mobile   string       `form:"mobile"`
-		Email    string       `form:"email"`
-		Remarks  string       `form:"remarks"`
+		Nickname string        `form:"nickname" binding:"required"`
+		Gender   common.Gender `form:"gender"`
+		Mobile   common.Mobile `form:"mobile"`
+		Email    common.Email  `form:"email"`
+		Remarks  string        `form:"remarks"`
 	}{}
-	if err := ctx.BindWith(&form, binding.Form); err != nil {
-		ctx.Error(err)
+	if err := ctx.ShouldBindWith(&form, binding.Form); err != nil {
+		_ = ctx.Error(err)
 		app.Output(gin.H{"tip": "参数无效"}).DisplayJSON(ctx, app.StatusQueryInvalid)
 	}
-	update := admin.Admins{}
-	if form.Nickname != SessionUser.Nickname {
+	user := admin.GetByID(SessionUser.UID)
+	auth := admin.NewLogin(ctx.ClientIP())
+	if !user.Has() {
+		auth.OutUserAll(SessionUser.UID)
+		app.Output(gin.H{"tip": "账号不可用"}).DisplayJSON(ctx, app.StatusForbidden)
+		return
+	}
+	if form.Nickname != user.Nickname {
 		if admin.NicknameCheckUsed(form.Nickname) != 0 {
 			app.Output(gin.H{"f": "nickname", "v": form.Nickname}).DisplayJSON(ctx, app.StatusNicknameUsed)
 			return
 		}
-		update.Nickname = form.Nickname
 	}
-	if !form.Gender.In() {
-		app.Output(gin.H{"f": "gender", "v": form.Gender}).DisplayJSON(ctx, app.StatusGenderInvalid)
+	for _, c := range []common.Checker{form.Gender, form.Mobile, form.Email} {
+		if !c.Check() {
+			app.Output(gin.H{"f": c.Name(), "v": c.String()}).DisplayJSON(ctx, invalids[c.Name()])
+			return
+		}
+	}
+	user.Nickname = form.Nickname
+	user.Gender = form.Gender
+	user.Mobile = form.Mobile
+	user.Email = form.Email
+	user.Intro = form.Remarks
+	tx := app.DBConn.Begin()
+	err := func() error {
+		if err := tx.Model(user).Update(user).Error; err != nil {
+			return err
+		}
+		SessionUser.Nickname = form.Nickname
+		if !auth.Check(SessionID, &SessionUser) {
+			return errors.New("user out login")
+		}
+		return nil
+	}()
+	if err != nil {
+		tx.Rollback()
+		if err.Error() != "user out login" {
+			panic(err)
+		}
+		app.Output().DisplayJSON(ctx, app.StatusUpdateFail)
 		return
 	}
-	fmt.Printf("%+v", form)
+	tx.Commit()
+	app.Output().DisplayJSON(ctx, app.StatusOK)
+	return
 }
 
 func (*Auth) logout(ctx *gin.Context) {

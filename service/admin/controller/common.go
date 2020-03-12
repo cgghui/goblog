@@ -3,7 +3,7 @@ package controller
 import (
 	"goblog/app"
 	"goblog/model/admin"
-	"goblog/model/config"
+	"goblog/model/common"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +31,7 @@ func (c *Common) Construct(appx *app.App) {
 	})
 
 	skipAuths := make([]string, 0)
-	config.Get("admin", "skip_auths").BindStruct(&skipAuths)
+	common.Get("admin", "skip_auths").BindStruct(&skipAuths)
 
 	appx.Use(c.checkSession(skipAuths))
 
@@ -44,7 +44,7 @@ func (*Common) checkSession(skipRoutes []string) gin.HandlerFunc {
 				return
 			}
 		}
-		tk := config.Get("admin", "session_name").String()
+		tk := common.Get("admin", "session_name").String()
 		tk = ctx.Request.Header.Clone().Get(tk)
 		if len(tk) < 8 {
 			app.Output(gin.H{"tip": "SessionID无效 Err1"}).DisplayJSON(ctx, app.StatusAuthInvalid)
