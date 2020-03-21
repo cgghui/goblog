@@ -70,7 +70,6 @@ func NewLogin(clientIP string) *Login {
 }
 
 // Check
-// TODO 更新账号的普通资料时，须要调用这个更新Session数据，允许在ret参数中指定新的Nickname
 func (l *Login) Check(keyID string, ret *LoginSessionData) bool {
 	if app.RedisConn.Exists(keyID).Val() == 0 {
 		return false

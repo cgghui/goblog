@@ -79,10 +79,16 @@ layui.define(['form', 'upload'], function(exports){
   form.on('submit(setmyinfo)', function(obj){
     admin.req({
       method: "post",
-      url: setter.apiurl + "auth/userinfo_update"
-      ,data: obj.field
-      ,success: function() {
-
+      url: setter.apiurl + "auth/userinfo_update",
+      data: obj.field,
+      success: function(resp) {
+        if (resp.code === 0) {
+          layer.alert("修改成功，点击 确定 重载页面！", function () {
+            location.reload();
+          });
+          return
+        }
+        layer.alert("修改失败，请重试！");
       }
     });
   });

@@ -39,7 +39,7 @@
             <div class="layui-form-item">
               <label class="layui-form-label">昵称</label>
               <div class="layui-input-inline">
-                <input type="text" name="nickname" value="{{ d.data.detail.nickname }}" lay-verify="nickname" autocomplete="off" placeholder="请输入昵称" class="layui-input">
+                <input type="text" name="nickname" value="{{ d.data.detail.nickname }}" lay-verify="nickname" lay-verType="tips" autocomplete="off" placeholder="请输入昵称" class="layui-input">
               </div>
             </div>
             <div class="layui-form-item">
@@ -59,13 +59,13 @@
             <div class="layui-form-item">
               <label class="layui-form-label">手机</label>
               <div class="layui-input-inline">
-                <input type="text" name="mobile" value="{{ d.data.detail.mobile }}" lay-verify="phone" autocomplete="off" class="layui-input">
+                <input type="text" name="mobile" value="{{ d.data.detail.mobile }}" lay-verify="phone" lay-verType="tips" autocomplete="off" class="layui-input">
               </div>
             </div>
             <div class="layui-form-item">
               <label class="layui-form-label">邮箱</label>
               <div class="layui-input-inline">
-                <input type="text" name="email" value="{{ d.data.detail.email }}" lay-verify="email" autocomplete="off" class="layui-input">
+                <input type="text" name="email" value="{{ d.data.detail.email }}" lay-verify="email" lay-verType="tips" autocomplete="off" class="layui-input">
               </div>
             </div>
             <div class="layui-form-item layui-form-text">
