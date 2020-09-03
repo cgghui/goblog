@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	Name    = "GoBlog"               // 系统名称
-	Version = "1.0.0"                // 系统版本
-	HomeURL = "http://api.04559.com" // 系统官方网址
-	Author  = "ChenGuangHui"         // 系统作者
+	Name    = "GoBlog"                   // 系统名称
+	Version = "1.0.0"                    // 系统版本
+	HomeURL = "http://service.04559.com" // 系统官方网址
+	Author  = "ChenGuangHui"             // 系统作者
 )
 
 var (
@@ -65,13 +65,19 @@ func init() {
 	}
 }
 
+// path 全局配置文件路径，在程序参数中附带
+// 保存是为了使用ReloadConfig方法能顺利调用
+var path string
+
 // initialize 初始化配置 外部通知ReloadConfig重载配置
 func initialize() error {
-	var path string
-	flag.StringVar(&path, "g", "", "全局配置文件路径")
-	flag.Parse()
+	// 如果path已定义
 	if path == "" {
-		return errors.New("-g must argument")
+		flag.StringVar(&path, "g", "", "全局配置文件路径")
+		flag.Parse()
+		if path == "" {
+			return errors.New("-g must argument")
+		}
 	}
 	c, err := ini.Load(path, "config.ini")
 	if err != nil {
