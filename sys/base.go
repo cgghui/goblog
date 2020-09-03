@@ -1,16 +1,19 @@
-package system
+package sys
 
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"gopkg.in/ini.v1"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -18,11 +21,12 @@ import (
 const (
 	Name    = "GoBlog"               // 系统名称
 	Version = "1.0.0"                // 系统版本
-	HomeURL = "http://www.04559.com" // 系统官方网址
+	HomeURL = "http://api.04559.com" // 系统官方网址
 	Author  = "ChenGuangHui"         // 系统作者
 )
 
 var (
+	G     config
 	DB    *gorm.DB
 	Redis *redis.Client
 )
@@ -44,10 +48,63 @@ type ConfMySQL struct {
 
 // ConfRedis Redis配置参数
 type ConfRedis struct {
-	Enable  bool   `ini:"enable"`
-	Address string `ini:"address"`
-	Auth    string `ini:"auth"`
-	DB      uint8  `ini:"use_db_index"`
+	Enable bool   `ini:"enable"`
+	Addr   string `ini:"address"`
+	Auth   string `ini:"auth"`
+	DB     uint16 `ini:"use_db_index"`
+}
+
+type config struct {
+	D ConfMySQL `ini:"db"`
+	R ConfRedis `ini:"redis"`
+}
+
+func init() {
+	if err := initialize(); err != nil {
+		panic(err)
+	}
+}
+
+// initialize 初始化配置 外部通知ReloadConfig重载配置
+func initialize() error {
+	var path string
+	flag.StringVar(&path, "g", "", "全局配置文件路径")
+	flag.Parse()
+	if path == "" {
+		return errors.New("-g must argument")
+	}
+	c, err := ini.Load(path, "config.ini")
+	if err != nil {
+		return err
+	}
+	if err := c.MapTo(&G); err != nil {
+		return err
+	}
+	if err := ConnectMySQL(&G.D); err != nil {
+		return err
+	}
+	if err := ConnRedis(&G.R); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ReloadConfig 重新加载配置
+func ReloadConfig() error {
+	return initialize()
+}
+
+// ClearSpaceLR 清除结构体中字符串字段的左右空格
+func ClearSpaceLR(r interface{}) {
+	t := reflect.TypeOf(r).Elem()
+	v := reflect.ValueOf(r).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		val := v.Field(i)
+		if val.Kind() == reflect.String {
+			s := strings.TrimSpace(val.String())
+			val.SetString(s)
+		}
+	}
 }
 
 // ConnectMySQL 连接MySQL 成功返回nil
@@ -56,6 +113,8 @@ func ConnectMySQL(c *ConfMySQL) error {
 		return nil
 	}
 	if DB != nil {
+		db, _ := DB.DB()
+		_ = db.Close()
 	}
 	if c.User == "" {
 		return errors.New("MySQL conf incomplete")
@@ -117,16 +176,16 @@ func ConnRedis(c *ConfRedis) error {
 	if Redis != nil {
 		_ = Redis.Close()
 	}
-	if c.Address == "" {
-		c.Address = "127.0.0.1:6379"
+	if c.Addr == "" {
+		c.Addr = "127.0.0.1:6379"
 	} else {
-		if strings.Index(c.Address, ":") == -1 {
-			c.Address += ":6379"
+		if strings.Index(c.Addr, ":") == -1 {
+			c.Addr += ":6379"
 		}
 	}
 	Redis = redis.NewClient(&redis.Options{
 		Network:  "tcp",
-		Addr:     c.Address,
+		Addr:     c.Addr,
 		Password: c.Auth,
 		DB:       int(c.DB),
 	})
