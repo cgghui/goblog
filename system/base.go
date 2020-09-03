@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/jinzhu/gorm"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
+	"log"
+	"os"
 	"strings"
-
-	// MySQL Driver
-	_ "github.com/go-sql-driver/mysql"
+	"time"
 )
 
 const (
@@ -20,24 +23,23 @@ const (
 )
 
 var (
-	DB       *gorm.DB
-	dbDebug  *gorm.DB
-	dbNormal *gorm.DB
-	Redis    *redis.Client
+	DB    *gorm.DB
+	Redis *redis.Client
 )
 
 // ConfMySQL MySQL配置参数
 type ConfMySQL struct {
-	Enable   bool   `ini:"enable"`
-	Address  string `ini:"address"`
-	Username string `ini:"username"`
-	Password string `ini:"password"`
-	Dbname   string `ini:"dbname"`
-	Prefix   string `ini:"prefix"`
-	Charset  string `ini:"charset"`
-	MaxIdle  uint16 `ini:"max_idle"`
-	MaxOpen  uint16 `ini:"max_open"`
-	Debug    bool   `ini:"debug"`
+	Enable   bool            `ini:"enable"`
+	Addr     string          `ini:"address"`
+	User     string          `ini:"username"`
+	Password string          `ini:"password"`
+	Db       string          `ini:"dbname"`
+	Prefix   string          `ini:"prefix"`
+	Char     string          `ini:"charset"`
+	MaxIdle  uint16          `ini:"max_idle"`
+	MaxOpen  uint16          `ini:"max_open"`
+	Log      string          `ini:"log"`
+	LogLevel logger.LogLevel `ini:"log_level"`
 }
 
 // ConfRedis Redis配置参数
@@ -54,43 +56,56 @@ func ConnectMySQL(c *ConfMySQL) error {
 		return nil
 	}
 	if DB != nil {
-		_ = DB.Close()
 	}
-	if c.Username == "" {
+	if c.User == "" {
 		return errors.New("MySQL conf incomplete")
 	}
-	if c.Dbname == "" {
-		c.Dbname = c.Username
+	if c.Db == "" {
+		c.Db = c.User
 	}
-	if c.Address == "" {
-		c.Address = "127.0.0.1"
+	if c.Addr == "" {
+		c.Addr = "127.0.0.1:3306"
+	} else {
+		if strings.Index(c.Addr, ":") == -1 {
+			c.Addr += ":3306"
+		}
 	}
-	if strings.Index(c.Address, ":") == -1 {
-		c.Address += ":3306"
+	var output logger.Interface
+	if c.Log == "" {
+		output = logger.Default
+	} else {
+		f, err := os.OpenFile(c.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			return err
+		}
+		output = logger.New(log.New(f, "\r\n", log.LstdFlags), logger.Config{
+			SlowThreshold: time.Second,
+			Colorful:      false,
+			LogLevel:      c.LogLevel,
+		})
 	}
 	db, err := gorm.Open(
-		"mysql",
-		fmt.Sprintf("%s:%s@(%s)/%s?charset=%s&parseTime=True&loc=Local", c.Username, c.Password, c.Address, c.Dbname, c.Charset),
+		mysql.Open(fmt.Sprintf("%s:%s@(%s)/%s?charset=%s&parseTime=True&loc=Local", c.User, c.Password, c.Addr, c.Db, c.Char)),
+		&gorm.Config{
+			SkipDefaultTransaction: false,
+			PrepareStmt:            true,
+			NamingStrategy: schema.NamingStrategy{
+				TablePrefix:   c.Prefix,
+				SingularTable: true,
+			},
+			Logger: output,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("fail connect MySQL: %v", err)
 	}
-
-	db.DB().SetMaxIdleConns(int(c.MaxIdle))
-	db.DB().SetMaxOpenConns(int(c.MaxOpen))
-	db.SingularTable(true)
-
-	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
-		return c.Prefix + defaultTableName
+	x, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("fail pool MySQL: %v", err)
 	}
-
-	dbNormal = db
-	dbDebug = db.Debug()
-	if c.Debug {
-		DB = dbDebug
-	} else {
-		DB = dbNormal
-	}
+	x.SetMaxIdleConns(int(c.MaxIdle))
+	x.SetMaxOpenConns(int(c.MaxOpen))
+	DB = db
 	return nil
 }
 
@@ -103,10 +118,11 @@ func ConnRedis(c *ConfRedis) error {
 		_ = Redis.Close()
 	}
 	if c.Address == "" {
-		c.Address = "127.0.0.1"
-	}
-	if strings.Index(c.Address, ":") == -1 {
-		c.Address += ":6379"
+		c.Address = "127.0.0.1:6379"
+	} else {
+		if strings.Index(c.Address, ":") == -1 {
+			c.Address += ":6379"
+		}
 	}
 	Redis = redis.NewClient(&redis.Options{
 		Network:  "tcp",
