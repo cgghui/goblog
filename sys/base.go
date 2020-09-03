@@ -55,8 +55,10 @@ type ConfRedis struct {
 }
 
 type config struct {
-	D ConfMySQL `ini:"db"`
-	R ConfRedis `ini:"redis"`
+	Listen string    `ini:"listen"`
+	Mode   string    `ini:"mode"`
+	D      ConfMySQL `ini:"db"`
+	R      ConfRedis `ini:"redis"`
 }
 
 func init() {
