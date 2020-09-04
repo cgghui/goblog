@@ -57,6 +57,8 @@ type ConfRedis struct {
 type config struct {
 	Listen string    `ini:"listen"`
 	Mode   string    `ini:"mode"`
+	WebLog string    `ini:"web_log"`
+	ErrLog string    `ini:"error_log"`
 	D      ConfMySQL `ini:"db"`
 	R      ConfRedis `ini:"redis"`
 }
