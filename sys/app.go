@@ -3,10 +3,15 @@ package sys
 import (
 	"context"
 	"fmt"
+	"github.com/cgghui/goblog/sys/middleware"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"io"
 	"log"
+	"net/url"
 	"os"
+	"strconv"
 )
 
 // RouteBuilder 路由构造器
@@ -46,7 +51,10 @@ func New(rcs []RouteBuilder) *App {
 	app.Delims("{{", "}}")
 
 	// middleware default
-	app.Engine.Use(middlewareLogger(), middlewareRecovery())
+	app.Engine.Use(
+		middlewareLogger(),
+		middlewareRecovery(),
+	)
 	//middlewareCORS(app.Engine)
 	//middlewareSession(app.Engine)
 	return app
@@ -137,26 +145,75 @@ func middlewareRecovery() gin.HandlerFunc {
 //}
 
 // session中间件
-//func middleSession(router *gin.Engine) {
-//
-//	conf := SysConf["session"]
-//	if conf.Key("status").MustString("enable") == "disable" {
-//		return
-//	}
-//
-//	store, err := redis.NewStore(
-//		conf.Key("max_idle").MustInt(10),
-//		conf.Key("network").MustString("tcp"),
-//		conf.Key("host").MustString("127.0.0.1:6379"),
-//		conf.Key("auth").MustString(""),
-//		[]byte(conf.Key("secret").MustString("")),
-//	)
-//	if err != nil {
-//		log.Printf("Fail init session: %v\n", err)
-//		os.Exit(1)
-//	}
-//
-//	Session = store
-//
-//	router.Use(sessions.Sessions(conf.Key("name").MustString("SESSION"), store))
-//}
+func middleSession(router *gin.Engine) gin.HandlerFunc {
+	if !G.S.Enable {
+		return nil
+	}
+	// 解析Redis链接
+	target, err := url.Parse(G.S.SaveHandler)
+	if err != nil {
+		log.Panicf("session save handler parse: %v", err)
+	}
+	if target.Scheme != "redis" {
+		log.Panic("session save handler not redis")
+	}
+	opt := redis.Options{
+		Network: "tcp",
+	}
+	if target.Hostname() == "" {
+		opt.Addr = "127.0.0.1:6379"
+	} else {
+		if target.Port() == "" {
+			opt.Addr = target.Hostname() + ":6379"
+		} else {
+			opt.Addr = target.Host
+		}
+	}
+	arg := target.Query()
+	if auth := arg.Get("auth"); auth != "" {
+		opt.Password = auth
+	}
+	if db := arg.Get("db"); db != "" {
+		idx, err := strconv.Atoi(db)
+		if err != nil {
+			log.Panic("session redis select db not int")
+		}
+		opt.DB = idx
+	}
+	conn := redis.NewClient(&opt)
+	_, err = Redis.Ping(context.Background()).Result()
+	if err != nil {
+		log.Panicf("Fail SESSION store redis: %v", err)
+	}
+	if G.S.Name == "" {
+		G.S.Name = "GOBLOG_SESSION"
+	}
+	store := middleware.NewStorageToRedis(conn, []byte(G.S.Secret))
+	// 数据序列化方式
+	switch G.S.DataSerialize {
+	case "gob":
+		store.SetSerializer(middleware.GobSerializer{})
+	case "json":
+		store.SetSerializer(middleware.JSONSerializer{})
+	default:
+		store.SetSerializer(middleware.GobSerializer{})
+	}
+	//
+	store.SetKeyPrefix(G.S.Prefix)
+	// Cookie的有效域名
+	if G.S.CookieDomain != "" {
+		store.Opts.Domain = G.S.CookieDomain
+	}
+	// Cookie的有效路径
+	if G.S.CookiePath == "" {
+		G.S.CookiePath = "/"
+	}
+	store.Opts.Path = G.S.CookiePath
+	// Cookie的有效期
+	if G.S.CookieExpires <= 0 {
+		G.S.CookieExpires = 2592000
+	}
+	store.Opts.MaxAge = G.S.CookieExpires
+	//
+	return sessions.Sessions(G.S.Name, store)
+}

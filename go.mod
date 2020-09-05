@@ -4,9 +4,11 @@ go 1.15
 
 require (
 	github.com/gin-contrib/cors v1.3.1 // indirect
-	github.com/gin-contrib/sessions v0.0.3 // indirect
+	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-redis/redis/v8 v8.0.0-beta.9
+	github.com/gorilla/securecookie v1.1.1
+	github.com/gorilla/sessions v1.1.3
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	gopkg.in/ini.v1 v1.60.2

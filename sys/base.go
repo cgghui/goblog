@@ -54,13 +54,27 @@ type ConfRedis struct {
 	DB     uint16 `ini:"use_db_index"`
 }
 
+// ConfSession Session配置参数
+type ConfSession struct {
+	Enable        bool   `ini:"enable"`
+	Name          string `ini:"name"`
+	DataSerialize string `ini:"data_serialize"`
+	Prefix        string `ini:"prefix"`
+	Secret        string `ini:"secret"`
+	CookieDomain  string `ini:"cookie_domain"`
+	CookiePath    string `ini:"cookie_path"`
+	CookieExpires int    `ini:"cookie_expires"`
+	SaveHandler   string `ini:"save_handler"`
+}
+
 type config struct {
-	Listen string    `ini:"listen"`
-	Mode   string    `ini:"mode"`
-	WebLog string    `ini:"web_log"`
-	ErrLog string    `ini:"error_log"`
-	D      ConfMySQL `ini:"db"`
-	R      ConfRedis `ini:"redis"`
+	Listen string      `ini:"listen"`
+	Mode   string      `ini:"mode"`
+	WebLog string      `ini:"web_log"`
+	ErrLog string      `ini:"error_log"`
+	D      ConfMySQL   `ini:"db"`
+	R      ConfRedis   `ini:"redis"`
+	S      ConfSession `ini:"session"`
 }
 
 func init() {
@@ -133,7 +147,7 @@ func ConnectMySQL(c *ConfMySQL) error {
 		c.Db = c.User
 	}
 	if c.Addr == "" {
-		c.Addr = "127.0.0.1:3306"
+		c.Addr = ":3306"
 	} else {
 		if strings.Index(c.Addr, ":") == -1 {
 			c.Addr += ":3306"
@@ -187,7 +201,7 @@ func ConnRedis(c *ConfRedis) error {
 		_ = Redis.Close()
 	}
 	if c.Addr == "" {
-		c.Addr = "127.0.0.1:6379"
+		c.Addr = ":6379"
 	} else {
 		if strings.Index(c.Addr, ":") == -1 {
 			c.Addr += ":6379"

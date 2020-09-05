@@ -6,6 +6,7 @@ import (
 	"encoding/base32"
 	"encoding/gob"
 	"encoding/json"
+	gins "github.com/gin-contrib/sessions"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
@@ -19,6 +20,7 @@ type SessionSerializer interface {
 	Serialize(s *sessions.Session) ([]byte, error)
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
 // JSONSerializer 使用json对session数据进行序列化
 type JSONSerializer struct{}
 
@@ -32,6 +34,7 @@ func (r JSONSerializer) Deserialize(d []byte, s *sessions.Session) error {
 	return json.Unmarshal(d, &s.Values)
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
 // GobSerializer 使用gob对session数据进行序列化
 type GobSerializer struct{}
 
@@ -50,11 +53,13 @@ func (r GobSerializer) Deserialize(d []byte, s *sessions.Session) error {
 	return gob.NewDecoder(bytes.NewBuffer(d)).Decode(&s.Values)
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
+
 // Storage 用redis存储
 type Storage struct {
 	Redis      *redis.Client
 	Codecs     []securecookie.Codec
-	Options    *sessions.Options
+	Opts       *sessions.Options
 	Expire     int               // Session有效期
 	keyPrefix  string            // Session名前缀
 	serializer SessionSerializer // Session数据序列化
@@ -64,14 +69,33 @@ func NewStorageToRedis(cli *redis.Client, keyPairs ...[]byte) *Storage {
 	return &Storage{
 		Redis:  cli,
 		Codecs: securecookie.CodecsFromPairs(keyPairs...),
-		Options: &sessions.Options{
+		Opts: &sessions.Options{
 			Path:   "/",
 			MaxAge: 2592000,
 		},
 		Expire:     1800,
-		keyPrefix:  "session_",
+		keyPrefix:  "SESSION_",
 		serializer: GobSerializer{},
 	}
+}
+
+// SetSerializer 设置序列化方式
+func (s *Storage) SetSerializer(sr SessionSerializer) {
+	s.serializer = sr
+}
+
+// SetKeyPrefix 设置键前缀
+func (s *Storage) SetKeyPrefix(prefix string) {
+	if prefix == "" {
+		s.keyPrefix = "SESSION_"
+	} else {
+		s.keyPrefix = prefix
+	}
+}
+
+// SetSerializer 设置序列化方式
+func (s *Storage) SetExpire(sr SessionSerializer) {
+	s.serializer = sr
 }
 
 // Close 关闭Redis连接
@@ -92,8 +116,8 @@ func (s *Storage) New(r *http.Request, name string) (*sessions.Session, error) {
 	)
 	ss := sessions.NewSession(s, name)
 	//// make a copy
-	//options := *s.Options
-	//session.Options = &options
+	options := *s.Opts
+	ss.Options = &options
 	ss.IsNew = true
 	if c, err := r.Cookie(name); err == nil {
 		err = securecookie.DecodeMulti(name, c.Value, &ss.ID, s.Codecs...)
@@ -106,41 +130,50 @@ func (s *Storage) New(r *http.Request, name string) (*sessions.Session, error) {
 }
 
 // Save adds a single session to the response.
-func (s *Storage) Save(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
-	// Marked for deletion.
-	if session.Options.MaxAge <= 0 {
-		if err := s.delete(session); err != nil {
+func (s *Storage) Save(_ *http.Request, w http.ResponseWriter, ss *sessions.Session) error {
+	if ss.Options.MaxAge < 0 {
+		if err := s.delete(ss); err != nil {
 			return err
 		}
-		http.SetCookie(w, sessions.NewCookie(session.Name(), "", session.Options))
+		http.SetCookie(w, sessions.NewCookie(ss.Name(), "", ss.Options))
 	} else {
-		// Build an alphanumeric key for the redis store.
-		if session.ID == "" {
-			session.ID = strings.TrimRight(base32.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(32)), "=")
+		if ss.ID == "" {
+			ss.ID = strings.TrimRight(base32.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(32)), "=")
 		}
-		if err := s.save(session); err != nil {
+		if err := s.save(ss); err != nil {
 			return err
 		}
-		encoded, err := securecookie.EncodeMulti(session.Name(), session.ID, s.Codecs...)
+		encoded, err := securecookie.EncodeMulti(ss.Name(), ss.ID, s.Codecs...)
 		if err != nil {
 			return err
 		}
-		http.SetCookie(w, sessions.NewCookie(session.Name(), encoded, session.Options))
+		http.SetCookie(w, sessions.NewCookie(ss.Name(), encoded, ss.Options))
 	}
 	return nil
 }
 
-// save stores the session in redis.
+// MaxAge cookie的最长有效期
+func (s *Storage) MaxAge(age int) {
+	s.Opts.MaxAge = age
+	for _, codec := range s.Codecs {
+		if sc, ok := codec.(*securecookie.SecureCookie); ok {
+			sc.MaxAge(age)
+		}
+	}
+}
+
+// Options 选项
+func (s *Storage) Options(opts gins.Options) {
+	s.Opts = opts.ToGorillaOptions()
+}
+
+// save 存储数据
 func (s *Storage) save(ss *sessions.Session) error {
 	b, err := s.serializer.Serialize(ss)
 	if err != nil {
 		return err
 	}
-	age := ss.Options.MaxAge
-	if age == 0 {
-		age = s.Expire
-	}
-	return s.Redis.Do(context.Background(), "SETEX", s.keyPrefix+ss.ID, age, b).Err()
+	return s.Redis.Do(context.Background(), "SETEX", s.keyPrefix+ss.ID, s.Expire, b).Err()
 }
 
 // load 加载数据
@@ -154,6 +187,6 @@ func (s *Storage) load(ss *sessions.Session) (bool, error) {
 }
 
 // delete 删除数据
-func (s *Storage) delete(session *sessions.Session) error {
-	return s.Redis.Del(context.Background(), s.keyPrefix+session.ID).Err()
+func (s *Storage) delete(ss *sessions.Session) error {
+	return s.Redis.Del(context.Background(), s.keyPrefix+ss.ID).Err()
 }
