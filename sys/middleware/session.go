@@ -21,25 +21,25 @@ type SessionSerializer interface {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// JSONSerializer 使用json对session数据进行序列化
-type JSONSerializer struct{}
+// jsonSerializer 使用json对session数据进行序列化
+type jsonSerializer struct{}
 
 // Serialize json序列化
-func (r JSONSerializer) Serialize(s *sessions.Session) ([]byte, error) {
+func (r jsonSerializer) Serialize(s *sessions.Session) ([]byte, error) {
 	return json.Marshal(s.Values)
 }
 
 // Deserialize json解序列化
-func (r JSONSerializer) Deserialize(d []byte, s *sessions.Session) error {
+func (r jsonSerializer) Deserialize(d []byte, s *sessions.Session) error {
 	return json.Unmarshal(d, &s.Values)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// GobSerializer 使用gob对session数据进行序列化
-type GobSerializer struct{}
+// gobSerializer 使用gob对session数据进行序列化
+type gobSerializer struct{}
 
 // Serialize gob序列化
-func (r GobSerializer) Serialize(s *sessions.Session) ([]byte, error) {
+func (r gobSerializer) Serialize(s *sessions.Session) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	err := gob.NewEncoder(buf).Encode(s.Values)
 	if err == nil {
@@ -49,11 +49,16 @@ func (r GobSerializer) Serialize(s *sessions.Session) ([]byte, error) {
 }
 
 // Deserialize gob解序列化
-func (r GobSerializer) Deserialize(d []byte, s *sessions.Session) error {
+func (r gobSerializer) Deserialize(d []byte, s *sessions.Session) error {
 	return gob.NewDecoder(bytes.NewBuffer(d)).Decode(&s.Values)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
+// SSerializeTable session序列化的实现列表
+var SSerializeTable = map[string]SessionSerializer{
+	"json": jsonSerializer{},
+	"gob":  gobSerializer{},
+}
 
 // Storage 用redis存储
 type Storage struct {
@@ -73,9 +78,9 @@ func NewStorageToRedis(cli *redis.Client, keyPairs ...[]byte) *Storage {
 			Path:   "/",
 			MaxAge: 2592000,
 		},
-		Expire:     1800,
+		Expire:     1440,
 		keyPrefix:  "SESSION_",
-		serializer: GobSerializer{},
+		serializer: SSerializeTable["gob"],
 	}
 }
 

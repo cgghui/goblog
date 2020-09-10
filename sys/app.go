@@ -25,7 +25,7 @@ type App struct {
 }
 
 // New 初始化app服务
-func New(rcs []RouteBuilder) *App {
+func New() *App {
 	if DB != nil {
 		db, _ := DB.DB()
 		if err := db.Ping(); err != nil {
@@ -54,15 +54,11 @@ func New(rcs []RouteBuilder) *App {
 	app.Engine.Use(
 		middlewareLogger(),
 		middlewareRecovery(),
+		middleSession(),
 	)
 	//middlewareCORS(app.Engine)
 	//middlewareSession(app.Engine)
 	return app
-	//
-	//for _, rc := range rcs {
-	//	rc.Construct(app)
-	//}
-	//
 	//s := &http.Server{
 	//	Addr:         G.Listen,
 	//	Handler:      app.Engine,
@@ -80,8 +76,8 @@ func (a *App) RegisterMiddleware(f ...gin.HandlerFunc) {
 	a.Engine.Use(f...)
 }
 
-func (a *App) RegisterRouter() {
-
+func (a *App) RegisterRouter(r RouteBuilder) {
+	r.Construct(a)
 }
 
 // 日志中间件
@@ -145,7 +141,7 @@ func middlewareRecovery() gin.HandlerFunc {
 //}
 
 // session中间件
-func middleSession(router *gin.Engine) gin.HandlerFunc {
+func middleSession() gin.HandlerFunc {
 	if !G.S.Enable {
 		return nil
 	}
@@ -190,13 +186,10 @@ func middleSession(router *gin.Engine) gin.HandlerFunc {
 	}
 	store := middleware.NewStorageToRedis(conn, []byte(G.S.Secret))
 	// 数据序列化方式
-	switch G.S.DataSerialize {
-	case "gob":
-		store.SetSerializer(middleware.GobSerializer{})
-	case "json":
-		store.SetSerializer(middleware.JSONSerializer{})
-	default:
-		store.SetSerializer(middleware.GobSerializer{})
+	if f, ok := middleware.SSerializeTable[G.S.DataSerialize]; ok {
+		store.SetSerializer(f)
+	} else {
+		log.Panicf("Fail SESSION serialize type %s undefined", G.S.DataSerialize)
 	}
 	//
 	store.SetKeyPrefix(G.S.Prefix)
@@ -205,15 +198,17 @@ func middleSession(router *gin.Engine) gin.HandlerFunc {
 		store.Opts.Domain = G.S.CookieDomain
 	}
 	// Cookie的有效路径
-	if G.S.CookiePath == "" {
-		G.S.CookiePath = "/"
+	if G.S.CookiePath != "" {
+		store.Opts.Path = G.S.CookiePath
 	}
-	store.Opts.Path = G.S.CookiePath
+
 	// Cookie的有效期
-	if G.S.CookieExpires <= 0 {
-		G.S.CookieExpires = 2592000
+	if G.S.CookieExpires > 0 {
+		store.Opts.MaxAge = G.S.CookieExpires
 	}
-	store.Opts.MaxAge = G.S.CookieExpires
-	//
+	// Session数据的有效期
+	if G.S.DataExpires > 0 {
+		store.Expire = G.S.DataExpires
+	}
 	return sessions.Sessions(G.S.Name, store)
 }

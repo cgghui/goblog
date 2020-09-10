@@ -59,6 +59,7 @@ type ConfSession struct {
 	Enable        bool   `ini:"enable"`
 	Name          string `ini:"name"`
 	DataSerialize string `ini:"data_serialize"`
+	DataExpires   int    `ini:"data_expires"`
 	Prefix        string `ini:"prefix"`
 	Secret        string `ini:"secret"`
 	CookieDomain  string `ini:"cookie_domain"`
